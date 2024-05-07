@@ -18,10 +18,8 @@ load_dotenv()
 app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://mroutedb_user:XaoUcFYT9JBGqazs9XIMgvhMK4JnC214@dpg-cot6jg4f7o1s73e1rkag-a.oregon-postgres.render.com/mroutedb"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
-# app.config["JWT_SECRET_KEY"] = "merchandiser route tracker"
 
 
 db.init_app(app)
