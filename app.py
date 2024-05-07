@@ -33,7 +33,11 @@ CORS(app)
 
 @app.route('/signup', methods=['POST'])
 def signup():
-    data = request.json
+    data = request.get_json()
+
+    #Confirm if there's data
+    if not data:
+        return jsonify({"error":"Invalid request"}), 400
 
     #Extract required fields
     first_name = data.get('First_name')
