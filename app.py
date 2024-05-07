@@ -40,7 +40,7 @@ def signup():
         return jsonify({"error":"Invalid request"}), 400
 
     #Extract required fields
-    first_name = data.get('First_name')
+    first_name = data.get('first_name')
     middle_name = data.get('middle_name')
     last_name = data.get('last_name')
     national_id_no = data.get('national_id_no')
@@ -77,4 +77,30 @@ def signup():
         return jsonify({'message': 'User created successfully'}), 201
     except Exception as err:
         db.session.rollback()
-        return(("error": f"failed to create user. Error: {err}")), 400
+        return({"error": f"failed to create user. Error: {err}"}), 400
+    
+@app.route('/users', methods=['GET'])
+def users():
+    users = User.query.all()
+    user_list = []
+    for user in users:
+        user_info = {
+            'id': user.id,
+            'first_name': user.first_name,
+            'middle_name': user.middle_name,
+            'last_name': user.last_name,
+            'national_id_no': user.national_id_no,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'status': user.status,
+            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+            'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+        }
+        user_list.append(user_info)
+    return jsonify({'users': user_list})
+    
+
+if __name__ == '__main__':
+    app.run(debug=True)
