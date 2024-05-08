@@ -184,7 +184,7 @@ def route_plan_details():
             return jsonify({'message': 'Route plan created successfully'}), 201
         except Exception as err:
             db.session.rollback()
-            return jsonify({'error': f"failed to create route plan. Error: {err}"}), 500
+            return jsonify({'error': f"Internal server error. Error: {err}"}), 500
 
 @app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
 # @jwt_required()
@@ -207,7 +207,7 @@ def update_route_plan(route_plan_id):
         return jsonify({'message': 'Route plan updated successfully'}), 200
     except Exception as err:
         db.session.rollback()
-        return jsonify({'error': f"failed to update route. Error: {err}"}), 500
+        return jsonify({'error': f"Internal server error. Error: {err}"}), 500
     
 @app.route('/locations', methods=['GET', 'POST'])
 # @jwt_required()
@@ -255,7 +255,7 @@ def location_details():
             return jsonify({'message': 'Location created successfully'}), 201
         except Exception as err:
             db.session.rollback()
-            return jsonify({'error': f"failed to create location. Error: {err}"}), 500
+            return jsonify({'error': f"Internal server error. Error: {err}"}), 500
         
 
 if __name__ == '__main__':
