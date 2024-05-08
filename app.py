@@ -132,7 +132,7 @@ def users():
     return jsonify({'users': user_list}), 200
 
 @app.route('/route-plans', methods=['GET', 'POST'])
-# @jwt_required()
+@jwt_required()
 def route_plan_details():
     if request.method == 'GET':
         route_plans = RoutePlan.query.all()
@@ -187,7 +187,7 @@ def route_plan_details():
             return jsonify({'error': str(e)}), 500
 
 @app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
-# @jwt_required()
+@jwt_required()
 def update_route_plan(route_plan_id):
     data = request.get_json()
 
@@ -210,8 +210,61 @@ def update_route_plan(route_plan_id):
         return jsonify({'error': str(e)}), 500
     
 
+@app.route("/user/login", methods=["POST"])
+def login_user():
+
+    data = request.get_json()
 
     
+    if not data:
+        return jsonify({"error": "Invalid request"}), 400
+    
+    email = data.get("email")
+    password = data.get("password_hash")
+
+    
+    if not email or not password:
+        return jsonify({"error": "Email and password required"}), 400
+    
+    user = User.query.filter_by(email=email).first()
+
+    
+    if user:
+        if user.status == "blocked":
+            
+            return jsonify({"message": "Access denied, please contact system administrator"}), 409
+        
+    
+        if bcrypt.check_password_hash(user.password, password):
+
+            if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(days=14):
+                
+                return jsonify({"message": "Your password has expired. Please change it."}), 403
+            
+            
+            access_token = create_access_token(identity=user.id)
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
+            user_data = {
+                "user_id": user.id,
+                "access_token": access_token,
+                "role": user.role,
+                "username": user.username,
+                "email": user.email,
+                "last_name": user.last_name,
+                "avatar": user.avatar,
+                "last_login": user.last_login
+                         }
+            
+            return jsonify(user_data), 200
+        else:
+            return jsonify({"error": "Invalid credentials"}), 401
+    else:
+        return jsonify({"error": "User not found"}), 404
+    
+
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
