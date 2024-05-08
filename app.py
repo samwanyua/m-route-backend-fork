@@ -104,6 +104,10 @@ def signup():
 @jwt_required()
 def users():
     users = User.query.all()
+
+    if not users:
+        return jsonify({"message":"No users found"}), 404
+    
     user_list = []
     for user in users:
         user_info = {
@@ -126,6 +130,86 @@ def users():
     log_activity('Viewed user list', user_id)
 
     return jsonify({'users': user_list}), 200
+
+@app.route('/route-plans', methods=['GET', 'POST'])
+# @jwt_required()
+def route_plan_details():
+    if request.method == 'GET':
+        route_plans = RoutePlan.query.all()
+        if not route_plans:
+            return jsonify({'message': 'No route plans found'}), 404
+
+        route_plan_list = []
+        for route_plan in route_plans:
+            route_plan_info = {
+                'id': route_plan.id,
+                'merchandiser_id': route_plan.merchandiser_id,
+                'manager_id': route_plan.manager_id,
+                'date_range': route_plan.date_range,
+                'instructions': route_plan.instructions,
+                'status': route_plan.status
+            }
+            route_plan_list.append(route_plan_info)
+
+        return jsonify({'route_plans': route_plan_list}), 200
+
+    elif request.method == 'POST':
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid request, JSON data required"}), 400
+
+        # Extract required fields from the JSON data
+        merchandiser_id = data.get('merchandiser_id')
+        manager_id = data.get('manager_id')
+        date_range = data.get('date_range')
+        instructions = data.get('instructions')
+        status = data.get('status')
+
+        # Check for required fields
+        if not all([merchandiser_id, manager_id, date_range, status]):
+            return jsonify({'message': 'Missing required fields'}), 400
+
+        # Create a new route plan object
+        new_route_plan = RoutePlan(
+            merchandiser_id=merchandiser_id,
+            manager_id=manager_id,
+            date_range=date_range,
+            instructions=instructions,
+            status=status
+        )
+
+        try:
+            db.session.add(new_route_plan)
+            db.session.commit()
+            return jsonify({'message': 'Route plan created successfully'}), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+
+@app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
+# @jwt_required()
+def update_route_plan(route_plan_id):
+    data = request.get_json()
+
+    route_plan = RoutePlan.query.get(route_plan_id)
+    if not route_plan:
+        return jsonify({'message': 'Route plan not found'}), 404
+
+    # Update route plan attributes
+    route_plan.merchandiser_id = data.get('merchandiser_id', route_plan.merchandiser_id)
+    route_plan.manager_id = data.get('manager_id', route_plan.manager_id)
+    route_plan.date_range = data.get('date_range', route_plan.date_range)
+    route_plan.instructions = data.get('instructions', route_plan.instructions)
+    route_plan.status = data.get('status', route_plan.status)
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Route plan updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+    
+
 
     
 
