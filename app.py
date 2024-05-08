@@ -419,6 +419,9 @@ def get_users_activities():
     try:
         activity_logs = ActivityLog.query.all()
 
+        if not activity_logs:
+            return jsonify({"message": "No logs available"}), 400
+
         activity_logs_data = []
 
         for log in activity_logs:
@@ -438,6 +441,79 @@ def get_users_activities():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/user/outlets", methods=["GET", "POST"])
+@jwt_required()
+def create_and_get_outlet_details():
+    
+    if request.method == "GET":
+
+        try:
+            outlets = Outlet.query.all()
+
+            if not outlets:
+                return jsonify({"message": "There are no outlets"}), 400
+            
+            outlet_list = []
+
+            for outlet in outlets:
+                outlet_details = {
+                    "id": outlet.id,
+                    "name": outlet.name,
+                    "address": outlet.address,
+                    "contact_info": outlet.contact_info
+                }
+                outlet_list.append(outlet_details)
+
+            user_id = get_jwt_identity()
+            # user_id = 3
+            log_activity(f'Created outlet', user_id)
+
+            return jsonify(outlet_list), 200
+
+        except Exception as err:
+            return jsonify({"message": f"Error: {err}"})
+        
+        
+    elif request.method == "POST":
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
+        
+        name = data.get("name")
+        address = data.get("address")
+        contact_info = data.get("contact_info")
+
+        if not all([name, address, contact_info]):
+            return jsonify({"message": "Missing required fields"}), 400
+        
+        new_outlet = Outlet(
+            name=name,
+            address=address,
+            contact_info=contact_info
+        )
+        
+        try:
+
+            db.session.add(new_outlet)
+            db.session.commit()
+
+            user_id = get_jwt_identity()
+            # user_id = 3
+            log_activity(f'Created outlet: {name}', user_id)
+
+            return jsonify({"message": "Outlet created successfully"}), 201
+
+        except Exception as err:
+
+            db.session.rollback()
+            return jsonify({"error": f"Error: {err}"}), 500
+
+
+
 
 
 
