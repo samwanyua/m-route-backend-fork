@@ -89,11 +89,16 @@ def signup():
         role='merchandiser',  # merchandiser or manager or admin
     ) 
 
+    access_token = create_access_token(identity=new_user.id)
+
     try:
         db.session.add(new_user)
         db.session.commit()
         log_activity('User signed up', new_user.id)
-        return jsonify({'message': 'User created successfully'}), 201
+        return jsonify({
+            "access_token": access_token,
+            'message': 'User created successfully'
+            }), 201
     
     except Exception as err:
         db.session.rollback()
@@ -312,25 +317,28 @@ def login_user():
                 
                 return jsonify({"message": "Your password has expired. Please change it."}), 403
             
-            
-            access_token = create_access_token(identity=user.id)
-            user.last_login = datetime.now(timezone.utc)
-            db.session.commit()
 
             user_data = {
                 "user_id": user.id,
-                "access_token": access_token,
                 "role": user.role,
                 "username": user.username,
                 "email": user.email,
                 "last_name": user.last_name,
                 "avatar": user.avatar,
-                "last_login": user.last_login
+                "last_login": datetime.now(timezone.utc).isoformat()
                          }
+            
+            access_token = create_access_token(identity=user_data)
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
             
 
             log_activity(f'Logged in', user_id)
-            return jsonify(user_data), 200
+            return jsonify({
+                "access_token": access_token,
+                "message": "Login successful"
+                            }), 200
         
         else:
             return jsonify({"error": "Invalid credentials"}), 401
