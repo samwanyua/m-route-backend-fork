@@ -101,7 +101,7 @@ def signup():
     
     
 @app.route('/users', methods=['GET'])
-@jwt_required()
+# @jwt_required()
 def users():
     users = User.query.all()
 
@@ -126,8 +126,8 @@ def users():
         }
         user_list.append(user_info)
 
-    user_id = get_jwt_identity()
-    log_activity('Viewed user list', user_id)
+    # user_id = get_jwt_identity()
+    # log_activity('Viewed user list', user_id)
 
     return jsonify({'users': user_list}), 200
 
@@ -182,9 +182,9 @@ def route_plan_details():
             db.session.add(new_route_plan)
             db.session.commit()
             return jsonify({'message': 'Route plan created successfully'}), 201
-        except Exception as e:
+        except Exception as err:
             db.session.rollback()
-            return jsonify({'error': str(e)}), 500
+            return jsonify({'error': f"failed to create route plan. Error: {err}"}), 500
 
 @app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
 # @jwt_required()
@@ -205,13 +205,58 @@ def update_route_plan(route_plan_id):
     try:
         db.session.commit()
         return jsonify({'message': 'Route plan updated successfully'}), 200
-    except Exception as e:
+    except Exception as err:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f"failed to update route. Error: {err}"}), 500
     
+@app.route('/locations', methods=['GET', 'POST'])
+# @jwt_required()
+def location_details():
+    if request.method == 'GET':
+        locations = Location.query.all()
+        if not locations:
+            return jsonify({'message': 'No locations found'}), 404
 
+        location_list = []
+        for location in locations:
+            location_info = {
+                'id': location.id,
+                'merchandiser_id': location.merchandiser_id,
+                'timestamp': location.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'latitude': location.latitude,
+                'longitude': location.longitude
+            }
+            location_list.append(location_info)
 
-    
+        return jsonify({'locations': location_list}), 200
+    elif request.method == 'POST':
+        data = request.get_json()
+
+        # Extract required fields from the JSON data
+        merchandiser_id = data.get('merchandiser_id')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+
+        # Check for required fields
+        if not all([merchandiser_id, latitude, longitude]):
+            return jsonify({'message': 'Missing required fields'}), 400
+
+        # Create a new location object
+        new_location = Location(
+            merchandiser_id=merchandiser_id,
+            timestamp=datetime.now(timezone.utc),
+            latitude=latitude,
+            longitude=longitude
+        )
+
+        try:
+            db.session.add(new_location)
+            db.session.commit()
+            return jsonify({'message': 'Location created successfully'}), 201
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({'error': f"failed to create location. Error: {err}"}), 500
+        
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
