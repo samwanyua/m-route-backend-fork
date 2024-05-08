@@ -101,7 +101,7 @@ def signup():
     
     
 @app.route('/users', methods=['GET'])
-# @jwt_required()
+@jwt_required()
 def users():
     users = User.query.all()
 
@@ -413,7 +413,7 @@ def edit_user_image(id):
     
 
 @app.route("/user/get-logs", methods=["GET"])
-# @jwt_required()
+@jwt_required()
 def get_users_activities():
 
     try:
@@ -430,8 +430,8 @@ def get_users_activities():
             }
             activity_logs_data.append(log_data)
         
-        # user_id = get_jwt_identity()
-        user_id = 3
+        user_id = get_jwt_identity()
+        # user_id = 3
         log_activity('Viewed activity logs', user_id)
 
         return jsonify({"activity_logs": activity_logs_data}), 200
