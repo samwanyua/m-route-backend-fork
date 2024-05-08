@@ -132,7 +132,7 @@ def users():
     return jsonify({'users': user_list}), 200
 
 @app.route('/route-plans', methods=['GET', 'POST'])
-@jwt_required()
+# @jwt_required()
 def route_plan_details():
     if request.method == 'GET':
         route_plans = RoutePlan.query.all()
@@ -187,7 +187,7 @@ def route_plan_details():
             return jsonify({'error': str(e)}), 500
 
 @app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
-@jwt_required()
+# @jwt_required()
 def update_route_plan(route_plan_id):
     data = request.get_json()
 
