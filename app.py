@@ -473,7 +473,7 @@ def create_and_get_outlet_details():
             return jsonify(outlet_list), 200
 
         except Exception as err:
-            return jsonify({"message": f"Error: {err}"})
+            return jsonify({"message": f"Error: {err}"}), 500
         
         
     elif request.method == "POST":
@@ -513,7 +513,40 @@ def create_and_get_outlet_details():
             return jsonify({"error": f"Error: {err}"}), 500
 
 
+@app.route("/user/edit-outlet/<int:id>", methods=["PUT"])
+@jwt_required()
+def edit_outlet_details(id):
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid request"}), 400
 
+        outlet = Outlet.query.get(id)
+        
+        if not outlet:
+            return jsonify({"error": "Outlet not found"}), 404
+
+        # Update outlet attributes if provided in the request data
+        if 'name' in data:
+            outlet.name = data['name']
+        if 'address' in data:
+            outlet.address = data['address']
+        if 'contact_info' in data:
+            outlet.contact_info = data['contact_info']
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        user_id = get_jwt_identity()
+        # user_id = 3
+        log_activity('Created outlet', user_id)
+        
+        return jsonify({"message": "Outlet details updated successfully"}), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 
