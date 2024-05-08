@@ -221,7 +221,7 @@ def update_route_plan(route_plan_id):
         return jsonify({'error': f"Internal server error. Error: {err}"}), 500
     
 @app.route('/locations', methods=['GET', 'POST'])
-# @jwt_required()
+@jwt_required()
 def location_details():
     if request.method == 'GET':
         locations = Location.query.all()
@@ -239,8 +239,8 @@ def location_details():
             }
             location_list.append(location_info)
 
-
         return jsonify({'locations': location_list}), 200
+    
     elif request.method == 'POST':
         data = request.get_json()
 
@@ -343,9 +343,9 @@ def change_password():
      
 
     if old_password == new_password:
-        return jsonify({"message": "Old password and new password cannot be the same."})
+        return jsonify({"message": "Old password and new password cannot be the same."}), 400
 
-    if not old_password or not new_password:
+    if not old_password or not new_password or not email:
         return jsonify({"error": "Missing required fields."}), 400
 
     user = User.query.filter_by(email=email).first()
@@ -372,6 +372,37 @@ def change_password():
     else:
         return jsonify({"error": "User not found"}), 404
 
+
+@app.route("/user/edit-profile-image/<int:id>", methods=["PUT"])
+@jwt_required()
+def edit_user_image(id):
+    
+    data = request.get_json()
+
+    if not data:
+
+        return jsonify({"message": "Invalid request"}), 400
+    
+    new_avatar = data.get("avatar")
+
+    user = User.query.get(id)
+
+    if user:
+        
+        user.avatar = new_avatar
+
+        try:
+            db.session.commit()
+            log_activity(f'Change profile image', id)
+            return jsonify({"message": "Profile image updated successfully"}), 201
+        
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": str(e)}), 500
+        
+    else:
+        return jsonify({"error": "User not found"}), 404
+    
 
 
 if __name__ == '__main__':
