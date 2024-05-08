@@ -31,6 +31,9 @@ bcrypt = Bcrypt(app)
 api = Api(app)
 CORS(app)
 
+@app.route('/')
+def index():
+    return '<h1>Merchandiser Route App</h1>'
 
 def log_activity(action, user_id):
     try:
