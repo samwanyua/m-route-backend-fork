@@ -31,7 +31,76 @@ bcrypt = Bcrypt(app)
 api = Api(app)
 CORS(app)
 
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
 
+    #Confirm if there's data
+    if not data:
+        return jsonify({"error":"Invalid request"}), 400
 
+    #Extract required fields
+    first_name = data.get('first_name')
+    middle_name = data.get('middle_name')
+    last_name = data.get('last_name')
+    national_id_no = data.get('national_id_no')
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
 
+    # Check for required fields
+    if not all([first_name, last_name, national_id_no, username, email, password]):
+        return jsonify({'message': 'Missing required fields'}), 400
 
+    #Check if username or email already exist
+    if User.query.filter((User.username == username) | (User.email == email)).first():
+        return jsonify({'message': 'Username or email already exists'}), 409
+    
+    #Hash the password before saving it
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    #Create new user object
+    new_user = User(
+        first_name=first_name,
+        middle_name=middle_name,
+        last_name=last_name,
+        national_id_no=national_id_no,
+        username=username,
+        email=email,
+        password=hashed_password,
+        role='user',  # Assuming default role is 'user'
+        status='active'  # Assuming default status is 'active'
+    ) 
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({'message': 'User created successfully'}), 201
+    except Exception as err:
+        db.session.rollback()
+        return({"error": f"failed to create user. Error: {err}"}), 400
+    
+@app.route('/users', methods=['GET'])
+def users():
+    users = User.query.all()
+    user_list = []
+    for user in users:
+        user_info = {
+            'id': user.id,
+            'first_name': user.first_name,
+            'middle_name': user.middle_name,
+            'last_name': user.last_name,
+            'national_id_no': user.national_id_no,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'status': user.status,
+            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+            'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+        }
+        user_list.append(user_info)
+    return jsonify({'users': user_list})
+    
+
+if __name__ == '__main__':
+    app.run(debug=True)
