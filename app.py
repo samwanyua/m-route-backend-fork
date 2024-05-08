@@ -444,7 +444,7 @@ def get_users_activities():
 
 
 @app.route("/user/outlets", methods=["GET", "POST"])
-# @jwt_required()
+@jwt_required()
 def create_and_get_outlet_details():
     
     if request.method == "GET":
@@ -466,8 +466,8 @@ def create_and_get_outlet_details():
                 }
                 outlet_list.append(outlet_details)
 
-            # user_id = get_jwt_identity()
-            user_id = 3
+            user_id = get_jwt_identity()
+            # user_id = 3
             log_activity(f'Created outlet', user_id)
 
             return jsonify(outlet_list), 200
@@ -501,8 +501,8 @@ def create_and_get_outlet_details():
             db.session.add(new_outlet)
             db.session.commit()
 
-            # user_id = get_jwt_identity()
-            user_id = 3
+            user_id = get_jwt_identity()
+            # user_id = 3
             log_activity(f'Created outlet: {name}', user_id)
 
             return jsonify({"message": "Outlet created successfully"}), 201
