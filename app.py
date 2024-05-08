@@ -31,6 +31,24 @@ bcrypt = Bcrypt(app)
 api = Api(app)
 CORS(app)
 
+@app.route('/')
+def index():
+    return '<h1>Merchandiser Route App</h1>'
+
+def log_activity(action, user_id):
+    try:
+        new_activity = ActivityLog(
+            user_id=user_id,
+            action=action
+        )
+        db.session.add(new_activity)
+        db.session.commit()
+
+    except Exception as err:
+        db.session.rollback()
+        print(f"Failed to log activity. Error: {err}")
+
+
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -68,18 +86,22 @@ def signup():
         username=username,
         email=email,
         password=hashed_password,
-        role='user',  # Assuming default role is 'user'
-        status='active'  # Assuming default status is 'active'
+        role='merchandiser',  # merchandiser or manager or admin
     ) 
+
     try:
         db.session.add(new_user)
         db.session.commit()
+        log_activity('User signed up', new_user.id)
         return jsonify({'message': 'User created successfully'}), 201
+    
     except Exception as err:
         db.session.rollback()
         return({"error": f"failed to create user. Error: {err}"}), 400
     
+    
 @app.route('/users', methods=['GET'])
+@jwt_required()
 def users():
     users = User.query.all()
     user_list = []
@@ -99,8 +121,17 @@ def users():
             'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
         }
         user_list.append(user_info)
-    return jsonify({'users': user_list})
+
+    user_id = get_jwt_identity()
+    log_activity('Viewed user list', user_id)
+
+    return jsonify({'users': user_list}), 200
+
     
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5555, debug=True)
+
+
+
+

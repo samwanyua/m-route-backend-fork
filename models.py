@@ -18,7 +18,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(20), nullable = False)  #active/blocked. 
+    status = db.Column(db.String(20), nullable = False, default= "active")  #active/blocked. 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
     last_password_change = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
@@ -90,7 +90,7 @@ class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
     action = db.Column(db.String(100), nullable=False)
-    timestamp = db.Column(db.DateTime, nullable=False) 
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc)) 
     user = db.relationship('User', backref=db.backref('activity_logs', lazy=True))
 
 
