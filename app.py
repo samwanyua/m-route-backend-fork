@@ -101,7 +101,7 @@ def signup():
     
     
 @app.route('/users', methods=['GET'])
-# @jwt_required()
+@jwt_required()
 def users():
     users = User.query.all()
 
@@ -239,6 +239,9 @@ def location_details():
             }
             location_list.append(location_info)
 
+        user_id = get_jwt_identity()
+        log_activity('Added location', user_id)
+
         return jsonify({'locations': location_list}), 200
     
     elif request.method == 'POST':
@@ -264,7 +267,12 @@ def location_details():
         try:
             db.session.add(new_location)
             db.session.commit()
+
+            user_id = get_jwt_identity()
+            log_activity('Added location', user_id)
+
             return jsonify({'message': 'Location created successfully'}), 201
+        
         except Exception as err:
             db.session.rollback()
             return jsonify({'error': f"Internal server error. Error: {err}"}), 500
@@ -393,7 +401,7 @@ def edit_user_image(id):
 
         try:
             db.session.commit()
-            log_activity(f'Change profile image', id)
+            log_activity('Change profile image', id)
             return jsonify({"message": "Profile image updated successfully"}), 201
         
         except Exception as e:
@@ -403,6 +411,34 @@ def edit_user_image(id):
     else:
         return jsonify({"error": "User not found"}), 404
     
+
+@app.route("/user/get-logs", methods=["GET"])
+@jwt_required()
+def get_users_activities():
+
+    try:
+        activity_logs = ActivityLog.query.all()
+
+        activity_logs_data = []
+
+        for log in activity_logs:
+            log_data = {
+                "id": log.id,
+                "user_id": log.user_id,
+                "action": log.action,
+                "timestamp": log.timestamp.strftime('%Y-%m-%d %H:%M:%S') 
+            }
+            activity_logs_data.append(log_data)
+        
+        user_id = get_jwt_identity()
+        # user_id = 3
+        log_activity('Viewed activity logs', user_id)
+
+        return jsonify({"activity_logs": activity_logs_data}), 200
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == '__main__':
