@@ -132,7 +132,7 @@ def users():
     return jsonify({'users': user_list}), 200
 
 @app.route('/route-plans', methods=['GET', 'POST'])
-# @jwt_required()
+@jwt_required()
 def route_plan_details():
     if request.method == 'GET':
         route_plans = RoutePlan.query.all()
@@ -150,6 +150,9 @@ def route_plan_details():
                 'status': route_plan.status
             }
             route_plan_list.append(route_plan_info)
+
+        user_id = get_jwt_identity()
+        log_activity('Viewed merchandiser routes', user_id)
 
         return jsonify({'route_plans': route_plan_list}), 200
 
@@ -181,13 +184,16 @@ def route_plan_details():
         try:
             db.session.add(new_route_plan)
             db.session.commit()
+
+            user_id = get_jwt_identity()
+            log_activity('Created merchandiser routes', user_id)
             return jsonify({'message': 'Route plan created successfully'}), 201
         except Exception as err:
             db.session.rollback()
             return jsonify({'error': f"Internal server error. Error: {err}"}), 500
 
 @app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
-# @jwt_required()
+@jwt_required()
 def update_route_plan(route_plan_id):
     data = request.get_json()
 
@@ -204,8 +210,13 @@ def update_route_plan(route_plan_id):
 
     try:
         db.session.commit()
+
+        user_id = get_jwt_identity()
+        log_activity(f'Edited merchandiser route. Route id : {route_plan_id}', user_id)
         return jsonify({'message': 'Route plan updated successfully'}), 200
+
     except Exception as err:
+
         db.session.rollback()
         return jsonify({'error': f"Internal server error. Error: {err}"}), 500
     
@@ -227,6 +238,7 @@ def location_details():
                 'longitude': location.longitude
             }
             location_list.append(location_info)
+
 
         return jsonify({'locations': location_list}), 200
     elif request.method == 'POST':
@@ -257,6 +269,106 @@ def location_details():
             db.session.rollback()
             return jsonify({'error': f"Internal server error. Error: {err}"}), 500
         
+
+@app.route("/user/login", methods=["POST"])
+def login_user():
+
+    data = request.get_json()
+
+    
+    if not data:
+        return jsonify({"error": "Invalid request"}), 400
+    
+    email = data.get("email")
+    password = data.get("password_hash")
+
+    
+    if not email or not password:
+        return jsonify({"error": "Email and password required"}), 400
+    
+    user = User.query.filter_by(email=email).first()
+
+    
+    if user:
+        if user.status == "blocked":
+            
+            return jsonify({"message": "Access denied, please contact system administrator"}), 409
+        
+    
+        if bcrypt.check_password_hash(user.password, password):
+
+            if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(days=14):
+                
+                return jsonify({"message": "Your password has expired. Please change it."}), 403
+            
+            
+            access_token = create_access_token(identity=user.id)
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
+            user_data = {
+                "user_id": user.id,
+                "access_token": access_token,
+                "role": user.role,
+                "username": user.username,
+                "email": user.email,
+                "last_name": user.last_name,
+                "avatar": user.avatar,
+                "last_login": user.last_login
+                         }
+            
+            user_id = get_jwt_identity()
+            log_activity(f'Logged in', user_id)
+            return jsonify(user_data), 200
+        
+        else:
+            return jsonify({"error": "Invalid credentials"}), 401
+    else:
+        return jsonify({"error": "User not found"}), 404
+    
+@app.route("/user/change-password", methods=["PUT"])
+def change_password():
+    
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Invalid request"}), 400
+    
+    old_password = data.get("old_password")
+    new_password = data.get("new_password")
+    email = data.get("email")
+     
+
+    if old_password == new_password:
+        return jsonify({"message": "Old password and new password cannot be the same."})
+
+    if not old_password or not new_password:
+        return jsonify({"error": "Missing required fields."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    
+
+    if user:
+
+        user_id = user.id
+
+        if bcrypt.check_password_hash(user.password, old_password):
+
+            hashed_new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
+            user.password = hashed_new_password
+            user.last_password_change = datetime.now(timezone.utc)
+            db.session.commit()
+            user_id = user_id
+            log_activity(f'Changed password.', user_id)
+            return jsonify({"message": "Password changed successfully"}), 201
+        
+        else:
+            return jsonify({"error": "Invalid old password"}), 401
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
