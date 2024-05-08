@@ -191,7 +191,7 @@ def route_plan_details():
 def update_route_plan(route_plan_id):
     data = request.get_json()
 
-    route_plan = RoutePlan.query.get(route_plan_id)
+    route_plan = db.session.get(RoutePlan, route_plan_id)
     if not route_plan:
         return jsonify({'message': 'Route plan not found'}), 404
 
