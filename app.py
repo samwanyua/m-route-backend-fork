@@ -290,6 +290,9 @@ def login_user():
 
     
     if user:
+
+        user_id = user.id
+
         if user.status == "blocked":
             
             return jsonify({"message": "Access denied, please contact system administrator"}), 409
@@ -317,7 +320,7 @@ def login_user():
                 "last_login": user.last_login
                          }
             
-            user_id = get_jwt_identity()
+
             log_activity(f'Logged in', user_id)
             return jsonify(user_data), 200
         
@@ -360,6 +363,7 @@ def change_password():
             user.last_password_change = datetime.now(timezone.utc)
             db.session.commit()
             user_id = user_id
+
             log_activity(f'Changed password.', user_id)
             return jsonify({"message": "Password changed successfully"}), 201
         
