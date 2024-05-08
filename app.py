@@ -104,6 +104,10 @@ def signup():
 @jwt_required()
 def users():
     users = User.query.all()
+
+    if not users:
+        return jsonify({"message":"No users found"}), 404
+    
     user_list = []
     for user in users:
         user_info = {
