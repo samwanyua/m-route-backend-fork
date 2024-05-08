@@ -338,7 +338,7 @@ def login_user():
             return jsonify({
                 "access_token": access_token,
                 "message": "Login successful"
-                            }), 200
+                            }), 201
         
         else:
             return jsonify({"error": "Invalid credentials"}), 401
