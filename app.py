@@ -72,19 +72,23 @@ def signup():
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
+    staff_no = data.ge("staff_no")
 
     # Check for required fields
     if not all([first_name, last_name, national_id_no, username, email, password]):
         return jsonify({
             'message': 'Missing required fields',
+
             "successful": False,
             "status_code": 400
             }), 400
+
 
     # Check if username or email already exist
     if User.query.filter((User.username == username) | (User.email == email)).first():
         return jsonify({
             'message': 'Username or email already exists',
+
             "successful": False,
             "status_code": 409
             }), 409
@@ -111,6 +115,7 @@ def signup():
             "status_code": 400
             }), 400
 
+
     if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
         return jsonify({
             'message': 'Invalid email address',
@@ -132,6 +137,13 @@ def signup():
             "successful": False,
             "status_code": 400
             }), 400
+    
+    if not isinstance(staff_no, int):
+        return({
+            'message': 'Invalid staff number',
+            "successful": False,
+            "status_code": 400
+        }), 400
 
     # Hash the password before saving it
     hashed_password = generate_password_hash(password)
@@ -145,6 +157,7 @@ def signup():
         username=username,
         email=email,
         password=hashed_password,
+        staff_no = staff_no,
         role='merchandiser',  # merchandiser or manager or admin
     )
 
@@ -200,19 +213,19 @@ def users():
         }
         user_list.append(user_info)
 
-    # user_id = get_jwt_identity()
-
-    # log_activity('Viewed user list', user_id)
+    user_id = get_jwt_identity()
+    log_activity('Viewed user list', user_id)
 
     return jsonify({
         "successful": True,
         "status_code": 200,
-        'users': user_list
+        'message': user_list
         }), 200
 
 @app.route('/user/route-plans', methods=['GET', 'POST'])
 @jwt_required()
 def route_plan_details():
+
     if request.method == 'GET':
         route_plans = RoutePlan.query.all()
         if not route_plans:
@@ -240,7 +253,7 @@ def route_plan_details():
         return jsonify({
             "successful": True,
             "status_code": 200,
-            'route_plans': route_plan_list
+            'message': route_plan_list
             }), 200
 
     elif request.method == 'POST':
@@ -253,14 +266,15 @@ def route_plan_details():
                 }), 400
 
         # Extract required fields from the JSON data
-        merchandiser_id = data.get('merchandiser_id')
+        # merchandiser_id = data.get('merchandiser_id')
         manager_id = data.get('manager_id')
         date_range = data.get('date_range')
         instructions = data.get('instructions')
         status = data.get('status')
+        staff_no = data("staff_no")
 
         # Check for required fields
-        if not all([merchandiser_id, manager_id, date_range, status]):
+        if not all([staff_no, manager_id, date_range, status]):
             return jsonify({
                 'message': 'Missing required fields',
                 "successful": False,
@@ -268,9 +282,9 @@ def route_plan_details():
                 }), 400
         
         # Check if data adheres to model specifications
-        if not isinstance(merchandiser_id, int) or not isinstance(manager_id, int):
+        if not isinstance(staff_no, int) or not isinstance(manager_id, int):
             return jsonify({
-                'message': 'Merchandiser ID and Manager ID must be integers',
+                'message': 'Staff number and Manager ID must be integers',
                 "successful": False,
                 "status_code": 400
                 }), 400
@@ -295,11 +309,21 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 400
                 }), 400
+        
 
+        user = User.query.filter(staff_no == staff_no).first()
+
+        if not user:
+
+            return jsonify({
+                'message': 'Invalid staff number',
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         # Create a new route plan object
         new_route_plan = RoutePlan(
-            merchandiser_id=merchandiser_id,
+            merchandiser_id=user.id,
             manager_id=manager_id,
             date_range=date_range,
             instructions=instructions,
@@ -317,10 +341,11 @@ def route_plan_details():
                 "successful": True,
                 "status_code": 201
                 }), 201
+        
         except Exception as err:
             db.session.rollback()
             return jsonify({
-                'error': f"Internal server error. Error: {err}",
+                'message': f"Internal server error. Error: {err}",
                 "successful": False,
                 "status_code": 500
                 }), 500
@@ -431,7 +456,7 @@ def location_details():
         return jsonify({
             "successful": True,
             "status_code": 200,
-            'locations': location_list}), 200
+            'message': location_list}), 200
     
     elif request.method == 'POST':
         data = request.get_json()
@@ -602,37 +627,33 @@ def change_password():
     old_password = data.get("old_password")
     new_password = data.get("new_password")
     email = data.get("email")
+
+    # new_password must be string and length must be <= 120
      
 
     if old_password == new_password:
         return jsonify({
-            "message": "Old password and new password cannot be the same.",
+
+            "message": "Old password and new password cannot be the same",
+
             "successful": False,
             "status_code": 400
             }), 400
 
     if not old_password or not new_password or not email:
         return jsonify({
-            "message": "Missing required fields.",
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        return jsonify({
-            'message': 'Invalid email address',
+
+            "message": "Missing required fields",
             "successful": False,
             "status_code": 400
             }), 400
 
-    if not isinstance(old_password, str) or len(old_password) < 6:
-        return jsonify({
-            'message': 'Password must be a string and at least 6 characters long',
             "successful": False,
             "status_code": 400
             }), 400
     
     if not isinstance(new_password, str) or len(new_password) < 6:
+      
         return jsonify({
             'message': 'Password must be a string and at least 6 characters long',
             "successful": False,
@@ -660,8 +681,8 @@ def change_password():
                 "message": "Password changed successfully",
                 "successful": True,
                 "status_code": 201
-                }), 201
-        
+                            }), 201
+          
         else:
             return jsonify({
                 "message": "Invalid old password",
@@ -728,11 +749,13 @@ def edit_user_image(id):
             "message": "User not found",
             "successful": False,
             "status_code": 404
-            }), 404
+
+                        }), 404
+
     
 
 @app.route("/user/get-logs", methods=["GET"])
-# @jwt_required()
+@jwt_required()
 def get_users_activities():
 
     try:
@@ -756,19 +779,20 @@ def get_users_activities():
             }
             activity_logs_data.append(log_data)
         
-        # user_id = get_jwt_identity()
-        user_id = 3
+        user_id = get_jwt_identity()
+        # user_id = 3
         log_activity('Viewed activity logs', user_id)
 
         return jsonify({
+
+            "message": activity_logs_data,
             "successful": True,
-            "status_code": 200,
-            "activity_logs": activity_logs_data
-            }), 200
+            "status_code": 200
+                        }), 200
     
     except Exception as e:
         return jsonify({
-            "error": str(e),
+            "message": str(e),
             "successful": False,
             "status_code": 500
             }), 500
@@ -787,8 +811,10 @@ def create_and_get_outlet_details():
                 return jsonify({
                     "message": "There are no outlets",
                     "successful": False,
-                    "status_code": 400
-                    }), 400
+
+                    "status_code": 404
+                                }), 404
+
             
             outlet_list = []
 
@@ -797,7 +823,8 @@ def create_and_get_outlet_details():
                     "id": outlet.id,
                     "name": outlet.name,
                     "address": outlet.address,
-                    "contact_info": outlet.contact_info
+                    "contact_info": outlet.contact_info,
+                    "street" : outlet.street
                 }
                 outlet_list.append(outlet_details)
 
@@ -805,7 +832,11 @@ def create_and_get_outlet_details():
             # user_id = 3
             log_activity(f'Created outlet', user_id)
 
-            return jsonify(outlet_list), 200
+            return jsonify({
+                "message": outlet_list,
+                "successful": True,
+                "status_code": 200
+            }), 200
 
         except Exception as err:
             return jsonify({
@@ -820,13 +851,20 @@ def create_and_get_outlet_details():
         data = request.get_json()
 
         if not data:
-            return jsonify({"message": "Invalid data"}), 400
+            return jsonify({
+                "message": "Invalid data",
+                "successful": False,
+                "status_code": 400
+                }), 400
         
         name = data.get("name")
         address = data.get("address")
         contact_info = data.get("contact_info")
+        street = data.get("street")
 
-        if not all([name, address, contact_info]):
+
+        if not all([name, address, contact_info, street]):
+
             return jsonify({
                 "message": "Missing required fields",
                 "successful": False,
@@ -854,10 +892,19 @@ def create_and_get_outlet_details():
                 "status_code": 400
                 }), 400
         
+        if not isinstance(street, str) or len(street) > 200:
+            return jsonify({
+                'message': 'Street name must be a string of not more than 200 characters',
+                "successful": False,
+                "status_code": 400
+                }), 400
+        
+
         new_outlet = Outlet(
             name=name,
             address=address,
-            contact_info=contact_info
+            contact_info=contact_info,
+            street = street
         )
         
         try:
@@ -879,7 +926,9 @@ def create_and_get_outlet_details():
 
             db.session.rollback()
             return jsonify({
-                "error": f"Error: {err}",
+
+                "message": f"message: {err}",
+
                 "successful": False,
                 "status_code": 500
                 }), 500
@@ -891,25 +940,53 @@ def edit_outlet_details(id):
     
     try:
         data = request.get_json()
+
         if not data:
-            return jsonify({"error": "Invalid request"}), 400
+            return jsonify({
+                "message": "Invalid request",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         outlet = Outlet.query.get(id)
         
         if not outlet:
-            return jsonify({"error": "Outlet not found"}), 404
+            return jsonify({
+                "message": "Outlet not found",
+                "successful": False,
+                "status_code": 400
+                }), 404
         
         if 'name' in data:
             if not isinstance(data['name'], str) or len(data['name']) > 100:
-                return jsonify({'message': 'Name must be a string and not exceed 100 characters'}), 400
+                return jsonify({
+                    'message': 'Name must be a string and not exceed 100 characters',
+                    "successful": False,
+                    "status_code": 400
+                    }), 400
+        if "street" in data:
+            if not isinstance(data["street"], str) or len(data["street"]) > 200:
+                return jsonify({
+                    'message': 'Name must be a string and not exceed 200 characters',
+                    "successful": False,
+                    "status_code": 400
+                    }), 400
             
         if 'address' in data:
             if not isinstance(data['address'], str) or len(data['address']) > 200:
-                return jsonify({'message': 'Address must be a string and not exceed 200 characters'}), 400
+                return jsonify({
+                    'message': 'Address must be a string and not exceed 200 characters',
+                    "successful": False,
+                    "status_code": 400
+                    }), 400
             
         if 'contact_info' in data:
             if not isinstance(data['contact_info'], str) or len(data['contact_info']) > 100:
-                return jsonify({'message': 'Contact info must be a string and not exceed 100 characters'}), 400
+                return jsonify({
+                    'message': 'Contact info must be a string and not exceed 100 characters',
+                    "successful": False,
+                    "status_code": 400
+                    }), 400
 
         # Update outlet attributes if provided in the request data
         if 'name' in data:
@@ -918,6 +995,8 @@ def edit_outlet_details(id):
             outlet.address = data['address']
         if 'contact_info' in data:
             outlet.contact_info = data['contact_info']
+        if "street" in data:
+            outlet.street = data["street"]
 
         # Commit the changes to the database
         db.session.commit()
@@ -926,11 +1005,19 @@ def edit_outlet_details(id):
         # user_id = 3
         log_activity('Created outlet', user_id)
         
-        return jsonify({"message": "Outlet details updated successfully"}), 201
+        return jsonify({
+            "message": "Outlet details updated successfully",
+            "successful": True,
+            "status_code": 201
+            }), 201
     
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "message": str(e),
+            "successful": False,
+            "status_code": 500
+            }), 500
 
 
 @app.route("/user/notifications", methods=["GET", "POST"])
@@ -942,7 +1029,11 @@ def manage_notifications():
             notifications = Notification.query.filter_by(recipient_id=user_id).all()
 
             if not notifications:
-                return jsonify({"message": "No notifications found"}), 404
+                return jsonify({
+                    "message": "No notifications found",
+                    "successful": False,
+                    "status_code": 404
+                    }), 404
 
             notification_list = []
             for notification in notifications:
@@ -956,22 +1047,39 @@ def manage_notifications():
                 notification_list.append(notification_info)
 
             log_activity('Viewed notifications', user_id)
-            return jsonify(notification_list), 200
+            return jsonify({
+                "message": notification_list,
+                "successful": True,
+                "status_code": 200
+                }), 200
 
         except Exception as err:
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
     elif request.method == "POST":
         data = request.get_json()
 
         if not data:
-            return jsonify({"message": "Invalid data"}), 400
+            return jsonify({
+                "message": "Invalid data",
+                "successful": False,
+                "status_code": 400
+                            }), 400
 
         recipient_id = data.get("recipient_id")
         content = data.get("content")
 
         if not all([recipient_id, content]):
-            return jsonify({"message": "Missing required fields"}), 400
+
+            return jsonify({
+                "message": "Missing required fields",
+                "successful": False,
+                "status_code": 400
+                }), 400
         
         # Check data types and formats
         if not isinstance(recipient_id, int):
@@ -979,6 +1087,7 @@ def manage_notifications():
 
         if not isinstance(content, str):
             return jsonify({"message": "Content must be a string"}), 400
+
 
         new_notification = Notification(
             recipient_id=recipient_id,
@@ -994,27 +1103,50 @@ def manage_notifications():
             user_id = get_jwt_identity()
             log_activity(f'Created notification: {content}', user_id)
 
-            return jsonify({"message": "Notification created successfully"}), 201
+            return jsonify({
+                "message": "Notification created successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
 
         except Exception as err:
             db.session.rollback()
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
 @app.route("/user/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 def update_or_delete_notification(notification_id):
+
     notification = Notification.query.get(notification_id)
+
     if not notification:
-        return jsonify({"message": "Notification not found"}), 404
+        return jsonify({
+            "message": "Notification not found",
+            "successful": False,
+            "status_code": 404
+                        }), 404
 
     if request.method == "PUT":
+        
         data = request.get_json()
         if not data:
-            return jsonify({"message": "Invalid data"}), 400
+            return jsonify({
+                "message": "Invalid data",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         status = data.get("status")
         if status not in ["read", "unread"]:
-            return jsonify({"message": "Invalid status value"}), 400
+            return jsonify({
+                "message": "Invalid status value",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         notification.status = status
 
@@ -1024,11 +1156,19 @@ def update_or_delete_notification(notification_id):
             user_id = get_jwt_identity()
             log_activity(f'Updated notification status: {notification_id}', user_id)
 
-            return jsonify({"message": "Notification status updated successfully"}), 200
+            return jsonify({
+                "message": "Notification status updated successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
 
         except Exception as err:
             db.session.rollback()
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
     elif request.method == "DELETE":
         try:
@@ -1038,11 +1178,19 @@ def update_or_delete_notification(notification_id):
             user_id = get_jwt_identity()
             log_activity(f'Deleted notification: {notification_id}', user_id)
 
-            return jsonify({"message": "Notification deleted successfully"}), 200
+            return jsonify({
+                "message": "Notification deleted successfully",
+                "successful": False,
+                "status_code": 204
+                }), 204
 
         except Exception as err:
             db.session.rollback()
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
 
 if __name__ == '__main__':
