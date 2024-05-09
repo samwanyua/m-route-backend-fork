@@ -633,20 +633,27 @@ def change_password():
 
     if old_password == new_password:
         return jsonify({
+
             "message": "Old password and new password cannot be the same",
+
             "successful": False,
             "status_code": 400
             }), 400
 
     if not old_password or not new_password or not email:
         return jsonify({
+
             "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+            }), 400
+
             "successful": False,
             "status_code": 400
             }), 400
     
     if not isinstance(new_password, str) or len(new_password) < 6:
-
+      
         return jsonify({
             'message': 'Password must be a string and at least 6 characters long',
             "successful": False,
@@ -675,7 +682,7 @@ def change_password():
                 "successful": True,
                 "status_code": 201
                             }), 201
-        
+          
         else:
             return jsonify({
                 "message": "Invalid old password",
@@ -742,7 +749,9 @@ def edit_user_image(id):
             "message": "User not found",
             "successful": False,
             "status_code": 404
+
                         }), 404
+
     
 
 @app.route("/user/get-logs", methods=["GET"])
@@ -775,6 +784,7 @@ def get_users_activities():
         log_activity('Viewed activity logs', user_id)
 
         return jsonify({
+
             "message": activity_logs_data,
             "successful": True,
             "status_code": 200
@@ -801,8 +811,10 @@ def create_and_get_outlet_details():
                 return jsonify({
                     "message": "There are no outlets",
                     "successful": False,
+
                     "status_code": 404
                                 }), 404
+
             
             outlet_list = []
 
@@ -850,7 +862,9 @@ def create_and_get_outlet_details():
         contact_info = data.get("contact_info")
         street = data.get("street")
 
+
         if not all([name, address, contact_info, street]):
+
             return jsonify({
                 "message": "Missing required fields",
                 "successful": False,
@@ -912,7 +926,9 @@ def create_and_get_outlet_details():
 
             db.session.rollback()
             return jsonify({
-                "error": f"message: {err}",
+
+                "message": f"message: {err}",
+
                 "successful": False,
                 "status_code": 500
                 }), 500
