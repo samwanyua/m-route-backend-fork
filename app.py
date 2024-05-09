@@ -582,6 +582,15 @@ def create_and_get_outlet_details():
         if not all([name, address, contact_info]):
             return jsonify({"message": "Missing required fields"}), 400
         
+        if not isinstance(name, str) or len(name) > 100:
+            return jsonify({'message': 'Name must be a string and not more than 100 characters'}), 400
+        
+        if not isinstance(address, str) or len(address) > 100:
+            return jsonify({'message': 'Address must be a string and not more than 200 characters'}), 400
+        
+        if not isinstance(contact_info, str) or len(contact_info) > 100:
+            return jsonify({'message': 'Contact info must be a string and not more than 100 characters'}), 400
+        
         new_outlet = Outlet(
             name=name,
             address=address,
