@@ -68,11 +68,19 @@ def signup():
 
     # Check for required fields
     if not all([first_name, last_name, national_id_no, username, email, password]):
-        return jsonify({'message': 'Missing required fields'}), 400
+        return jsonify({
+            'message': 'Missing required fields',
+            "status_code": 400,
+            "success": False
+            }), 400
+    
+    
 
     #Check if username or email already exist
     if User.query.filter((User.username == username) | (User.email == email)).first():
-        return jsonify({'message': 'Username or email already exists'}), 409
+        return jsonify({
+            'message': 'Username or email already exists',
+            }), 409
     
     #Hash the password before saving it
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -357,6 +365,8 @@ def change_password():
     old_password = data.get("old_password")
     new_password = data.get("new_password")
     email = data.get("email")
+
+    # new_password must be string and length must be <= 120
      
 
     if old_password == new_password:
@@ -567,7 +577,11 @@ def manage_notifications():
             notifications = Notification.query.filter_by(recipient_id=user_id).all()
 
             if not notifications:
-                return jsonify({"message": "No notifications found"}), 404
+                return jsonify({
+                    "message": "No notifications found",
+                    "successful": False,
+                    "status_code": 404
+                    }), 404
 
             notification_list = []
             for notification in notifications:
@@ -581,22 +595,40 @@ def manage_notifications():
                 notification_list.append(notification_info)
 
             log_activity('Viewed notifications', user_id)
-            return jsonify(notification_list), 200
+            return jsonify({
+                "message": notification_list,
+                "successful": True,
+                "status_code": 200
+                }), 200
 
         except Exception as err:
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
     elif request.method == "POST":
         data = request.get_json()
 
         if not data:
-            return jsonify({"message": "Invalid data"}), 400
+            return jsonify({
+                "message": "Invalid data",
+                "successful": False,
+                "status_code": 400
+                            }), 400
 
         recipient_id = data.get("recipient_id")
         content = data.get("content")
 
         if not all([recipient_id, content]):
-            return jsonify({"message": "Missing required fields"}), 400
+            return jsonify({
+                "message": "Missing required fields",
+                "successful": False,
+                "status_code": 400
+                }), 400
+        
+        # if not
 
         new_notification = Notification(
             recipient_id=recipient_id,
@@ -612,27 +644,50 @@ def manage_notifications():
             user_id = get_jwt_identity()
             log_activity(f'Created notification: {content}', user_id)
 
-            return jsonify({"message": "Notification created successfully"}), 201
+            return jsonify({
+                "message": "Notification created successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
 
         except Exception as err:
             db.session.rollback()
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
 @app.route("/user/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 def update_or_delete_notification(notification_id):
+
     notification = Notification.query.get(notification_id)
+
     if not notification:
-        return jsonify({"message": "Notification not found"}), 404
+        return jsonify({
+            "message": "Notification not found",
+            "successful": False,
+            "status_code": 404
+                        }), 404
 
     if request.method == "PUT":
+        
         data = request.get_json()
         if not data:
-            return jsonify({"message": "Invalid data"}), 400
+            return jsonify({
+                "message": "Invalid data",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         status = data.get("status")
         if status not in ["read", "unread"]:
-            return jsonify({"message": "Invalid status value"}), 400
+            return jsonify({
+                "message": "Invalid status value",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         notification.status = status
 
@@ -642,11 +697,19 @@ def update_or_delete_notification(notification_id):
             user_id = get_jwt_identity()
             log_activity(f'Updated notification status: {notification_id}', user_id)
 
-            return jsonify({"message": "Notification status updated successfully"}), 200
+            return jsonify({
+                "message": "Notification status updated successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
 
         except Exception as err:
             db.session.rollback()
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
     elif request.method == "DELETE":
         try:
@@ -656,11 +719,19 @@ def update_or_delete_notification(notification_id):
             user_id = get_jwt_identity()
             log_activity(f'Deleted notification: {notification_id}', user_id)
 
-            return jsonify({"message": "Notification deleted successfully"}), 200
+            return jsonify({
+                "message": "Notification deleted successfully",
+                "successful": False,
+                "status_code": 204
+                }), 204
 
         except Exception as err:
             db.session.rollback()
-            return jsonify({"error": str(err)}), 500
+            return jsonify({
+                "message": str(err),
+                "successful": False,
+                "status_code": 500
+                }), 500
 
 
 if __name__ == '__main__':
