@@ -1,4 +1,18 @@
-# route-tracker-backend
+# Merch Mate
+
+## Table of Contents
+
+- [Installation](##Installation)
+- [Usage](##Usage)
+- [Features](##Features)
+- [Contributing](##Contributing)
+- [Authors](##Authors)
+- [License](#License)
+
+## Installation
+## Usage
+## Features
+## Contributing
 
 ### Backend api
 - https://m-route-backend.onrender.com/
@@ -14,3 +28,4 @@
 # License
 
 This project is licensed under the [MIT License](LICENSE)
+

@@ -1,7 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy import ForeignKey
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
+from sqlalchemy.dialects.postgresql import JSON
 
 db = SQLAlchemy()
 
@@ -13,10 +14,11 @@ class User(db.Model):
     middle_name = db.Column(db.String(200), nullable=True)
     last_name = db.Column(db.String(200), nullable=False)
     avatar = db.Column(BYTEA, nullable=True)
+    staff_no = db.Column(db.Integer, nullable=False, unique=True)
     national_id_no = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(100), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(300), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     status = db.Column(db.String(20), nullable = False, default= "active")  #active/blocked. 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
@@ -31,7 +33,7 @@ class RoutePlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     merchandiser_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
     manager_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
-    date_range = db.Column(db.String(20), nullable=False)
+    date_range = db.Column(JSON, nullable=False)
     instructions = db.Column(db.Text)
     status = db.Column(db.String(20), nullable=False) # complete or pending
 
@@ -60,6 +62,7 @@ class Outlet(db.Model):
     name = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(200), nullable=False)
     contact_info = db.Column(db.String(100), nullable=False)
+    street = db.Column(db.String(200), nullable=False, default="Tom Mboya Strt")
 
 
 class Notification(db.Model):
