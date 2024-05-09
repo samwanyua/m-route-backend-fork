@@ -556,7 +556,109 @@ def edit_outlet_details(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+@app.route("/notifications", methods=["GET", "POST"])
+@jwt_required()
+def manage_notifications():
+    if request.method == "GET":
+        try:
+            user_id = get_jwt_identity()
+            notifications = Notification.query.filter_by(recipient_id=user_id).all()
 
+            if not notifications:
+                return jsonify({"message": "No notifications found"}), 404
+
+            notification_list = []
+            for notification in notifications:
+                notification_info = {
+                    "id": notification.id,
+                    "recipient_id": notification.recipient_id,
+                    "content": notification.content,
+                    "timestamp": notification.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    "status": notification.status
+                }
+                notification_list.append(notification_info)
+
+            log_activity('Viewed notifications', user_id)
+            return jsonify(notification_list), 200
+
+        except Exception as err:
+            return jsonify({"error": str(err)}), 500
+
+    elif request.method == "POST":
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
+
+        recipient_id = data.get("recipient_id")
+        content = data.get("content")
+
+        if not all([recipient_id, content]):
+            return jsonify({"message": "Missing required fields"}), 400
+
+        new_notification = Notification(
+            recipient_id=recipient_id,
+            content=content,
+            timestamp=datetime.now(timezone.utc),
+            status="unread"
+        )
+
+        try:
+            db.session.add(new_notification)
+            db.session.commit()
+
+            user_id = get_jwt_identity()
+            log_activity(f'Created notification: {content}', user_id)
+
+            return jsonify({"message": "Notification created successfully"}), 201
+
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({"error": str(err)}), 500
+
+@app.route("/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
+@jwt_required()
+def update_or_delete_notification(notification_id):
+    notification = Notification.query.get(notification_id)
+    if not notification:
+        return jsonify({"message": "Notification not found"}), 404
+
+    if request.method == "PUT":
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
+
+        status = data.get("status")
+        if status not in ["read", "unread"]:
+            return jsonify({"message": "Invalid status value"}), 400
+
+        notification.status = status
+
+        try:
+            db.session.commit()
+
+            user_id = get_jwt_identity()
+            log_activity(f'Updated notification status: {notification_id}', user_id)
+
+            return jsonify({"message": "Notification status updated successfully"}), 200
+
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({"error": str(err)}), 500
+
+    elif request.method == "DELETE":
+        try:
+            db.session.delete(notification)
+            db.session.commit()
+
+            user_id = get_jwt_identity()
+            log_activity(f'Deleted notification: {notification_id}', user_id)
+
+            return jsonify({"message": "Notification deleted successfully"}), 200
+
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({"error": str(err)}), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
