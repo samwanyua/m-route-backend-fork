@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
+
 import os
 import re
 
@@ -23,6 +24,7 @@ app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15)
 
 
 db.init_app(app)
@@ -79,6 +81,13 @@ def signup():
     if existing_user:
         return jsonify({
             'message': 'Staff number already assigned',
+            "successful": False,
+            "status_code": 400
+            }), 400
+
+    if User.query.filter(User.national_id_no == national_id_no).first():
+        return jsonify({
+            'message': 'Another user exists with the provided National ID Number',
             "successful": False,
             "status_code": 400
             }), 400
