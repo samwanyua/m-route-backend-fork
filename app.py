@@ -89,11 +89,16 @@ def signup():
         role='merchandiser',  # merchandiser or manager or admin
     ) 
 
+    access_token = create_access_token(identity=new_user.id)
+
     try:
         db.session.add(new_user)
         db.session.commit()
         log_activity('User signed up', new_user.id)
-        return jsonify({'message': 'User created successfully'}), 201
+        return jsonify({
+            "access_token": access_token,
+            'message': 'User created successfully'
+            }), 201
     
     except Exception as err:
         db.session.rollback()
@@ -312,25 +317,28 @@ def login_user():
                 
                 return jsonify({"message": "Your password has expired. Please change it."}), 403
             
-            
-            access_token = create_access_token(identity=user.id)
-            user.last_login = datetime.now(timezone.utc)
-            db.session.commit()
 
             user_data = {
                 "user_id": user.id,
-                "access_token": access_token,
                 "role": user.role,
                 "username": user.username,
                 "email": user.email,
                 "last_name": user.last_name,
                 "avatar": user.avatar,
-                "last_login": user.last_login
+                "last_login": datetime.now(timezone.utc).isoformat()
                          }
+            
+            access_token = create_access_token(identity=user_data)
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+
             
 
             log_activity(f'Logged in', user_id)
-            return jsonify(user_data), 200
+            return jsonify({
+                "access_token": access_token,
+                "message": "Login successful"
+                            }), 201
         
         else:
             return jsonify({"error": "Invalid credentials"}), 401
@@ -419,6 +427,9 @@ def get_users_activities():
     try:
         activity_logs = ActivityLog.query.all()
 
+        if not activity_logs:
+            return jsonify({"message": "No logs available"}), 400
+
         activity_logs_data = []
 
         for log in activity_logs:
@@ -437,6 +448,112 @@ def get_users_activities():
         return jsonify({"activity_logs": activity_logs_data}), 200
     
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/user/outlets", methods=["GET", "POST"])
+@jwt_required()
+def create_and_get_outlet_details():
+    
+    if request.method == "GET":
+
+        try:
+            outlets = Outlet.query.all()
+
+            if not outlets:
+                return jsonify({"message": "There are no outlets"}), 400
+            
+            outlet_list = []
+
+            for outlet in outlets:
+                outlet_details = {
+                    "id": outlet.id,
+                    "name": outlet.name,
+                    "address": outlet.address,
+                    "contact_info": outlet.contact_info
+                }
+                outlet_list.append(outlet_details)
+
+            user_id = get_jwt_identity()
+            # user_id = 3
+            log_activity(f'Created outlet', user_id)
+
+            return jsonify(outlet_list), 200
+
+        except Exception as err:
+            return jsonify({"message": f"Error: {err}"}), 500
+        
+        
+    elif request.method == "POST":
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"message": "Invalid data"}), 400
+        
+        name = data.get("name")
+        address = data.get("address")
+        contact_info = data.get("contact_info")
+
+        if not all([name, address, contact_info]):
+            return jsonify({"message": "Missing required fields"}), 400
+        
+        new_outlet = Outlet(
+            name=name,
+            address=address,
+            contact_info=contact_info
+        )
+        
+        try:
+
+            db.session.add(new_outlet)
+            db.session.commit()
+
+            user_id = get_jwt_identity()
+            # user_id = 3
+            log_activity(f'Created outlet: {name}', user_id)
+
+            return jsonify({"message": "Outlet created successfully"}), 201
+
+        except Exception as err:
+
+            db.session.rollback()
+            return jsonify({"error": f"Error: {err}"}), 500
+
+
+@app.route("/user/edit-outlet/<int:id>", methods=["PUT"])
+@jwt_required()
+def edit_outlet_details(id):
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid request"}), 400
+
+        outlet = Outlet.query.get(id)
+        
+        if not outlet:
+            return jsonify({"error": "Outlet not found"}), 404
+
+        # Update outlet attributes if provided in the request data
+        if 'name' in data:
+            outlet.name = data['name']
+        if 'address' in data:
+            outlet.address = data['address']
+        if 'contact_info' in data:
+            outlet.contact_info = data['contact_info']
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        user_id = get_jwt_identity()
+        # user_id = 3
+        log_activity('Created outlet', user_id)
+        
+        return jsonify({"message": "Outlet details updated successfully"}), 201
+    
+    except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
