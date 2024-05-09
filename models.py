@@ -13,6 +13,7 @@ class User(db.Model):
     middle_name = db.Column(db.String(200), nullable=True)
     last_name = db.Column(db.String(200), nullable=False)
     avatar = db.Column(BYTEA, nullable=True)
+    staff_no = db.Column(db.Integer, nullable=True, unique=True)
     national_id_no = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(100), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -60,6 +61,7 @@ class Outlet(db.Model):
     name = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(200), nullable=False)
     contact_info = db.Column(db.String(100), nullable=False)
+    street = db.Column(db.String(200), nullable=False)
 
 
 class Notification(db.Model):
