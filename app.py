@@ -243,6 +243,27 @@ def update_route_plan(route_plan_id):
     route_plan = db.session.get(RoutePlan, route_plan_id)
     if not route_plan:
         return jsonify({'message': 'Route plan not found'}), 404
+    
+    # Check if data adheres to model specifications
+    if 'merchandiser_id' in data:
+        if not isinstance(data['merchandiser_id'], int):
+            return jsonify({'message': 'Merchandiser ID must be an integer'}), 400
+
+    if 'manager_id' in data:
+        if not isinstance(data['manager_id'], int):
+            return jsonify({'message': 'Manager ID must be an integer'}), 400
+
+    if 'date_range' in data:
+        if not isinstance(data['date_range'], str) or len(data['date_range']) > 20:
+            return jsonify({'message': 'Date range must be a string and not exceed 20 characters'}), 400
+
+    if 'instructions' in data:
+        if not isinstance(data['instructions'], str):
+            return jsonify({'message': 'Instructions must be a string'}), 400
+
+    if 'status' in data:
+        if data['status'] not in ['complete', 'pending']:
+            return jsonify({'message': 'Status must be either "complete" or "pending"'}), 400
 
     # Update route plan attributes
     route_plan.merchandiser_id = data.get('merchandiser_id', route_plan.merchandiser_id)
