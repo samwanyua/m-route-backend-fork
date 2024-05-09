@@ -481,6 +481,10 @@ def edit_user_image(id):
     
     new_avatar = data.get("avatar")
 
+    # Check if avatar data is provided and is of type bytes
+    if new_avatar is not None and not isinstance(new_avatar, bytes):
+        return jsonify({"message": "Avatar data must be in bytes format (BYTEA)"}), 400
+
     user = User.query.get(id)
 
     if user:
