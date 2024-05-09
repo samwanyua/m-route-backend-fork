@@ -319,6 +319,18 @@ def location_details():
         # Check for required fields
         if not all([merchandiser_id, latitude, longitude]):
             return jsonify({'message': 'Missing required fields'}), 400
+        
+        # Check data types and range
+        try:
+            merchandiser_id = int(merchandiser_id)
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except ValueError:
+            return jsonify({'message': 'Invalid data format'}), 400
+
+        # Check latitude and longitude range
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            return jsonify({'message': 'Invalid latitude or longitude values'}), 400
 
         # Create a new location object
         new_location = Location(
