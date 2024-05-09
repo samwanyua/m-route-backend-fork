@@ -9,7 +9,10 @@ from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash
 import os
+import re
+
 
 from models import User,  RoutePlan, Location, Outlet, Notification, ActivityLog
 
@@ -53,11 +56,11 @@ def log_activity(action, user_id):
 def signup():
     data = request.get_json()
 
-    #Confirm if there's data
+    # Confirm if there's data
     if not data:
-        return jsonify({"error":"Invalid request"}), 400
+        return jsonify({"error": "Invalid request"}), 400
 
-    #Extract required fields
+    # Extract required fields
     first_name = data.get('first_name')
     middle_name = data.get('middle_name')
     last_name = data.get('last_name')
@@ -70,14 +73,34 @@ def signup():
     if not all([first_name, last_name, national_id_no, username, email, password]):
         return jsonify({'message': 'Missing required fields'}), 400
 
-    #Check if username or email already exist
+    # Check if username or email already exist
     if User.query.filter((User.username == username) | (User.email == email)).first():
         return jsonify({'message': 'Username or email already exists'}), 409
-    
-    #Hash the password before saving it
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    #Create new user object
+    # Extra checks for input data
+    if not isinstance(first_name, str) or len(first_name) > 200:
+        return jsonify({'message': 'First name must be a string and not more than 200 characters'}), 400
+
+    if middle_name and (not isinstance(middle_name, str) or len(middle_name) > 200):
+        return jsonify({'message': 'Middle name must be a string and not more than 200 characters'}), 400
+
+    if not isinstance(last_name, str) or len(last_name) > 200:
+        return jsonify({'message': 'Last name must be a string and not more than 200 characters'}), 400
+
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return jsonify({'message': 'Invalid email address'}), 400
+
+    if not isinstance(password, str) or len(password) < 6:
+        return jsonify({'message': 'Password must be a string and at least 6 characters long'}), 400
+
+    # Check if national ID is an integer
+    if not isinstance(national_id_no, int):
+        return jsonify({'message': 'National ID must be an integer'}), 400
+
+    # Hash the password before saving it
+    hashed_password = generate_password_hash(password)
+
+    # Create new user object
     new_user = User(
         first_name=first_name,
         middle_name=middle_name,
@@ -87,7 +110,7 @@ def signup():
         email=email,
         password=hashed_password,
         role='merchandiser',  # merchandiser or manager or admin
-    ) 
+    )
 
     access_token = create_access_token(identity=new_user.id)
 
@@ -98,11 +121,11 @@ def signup():
         return jsonify({
             "access_token": access_token,
             'message': 'User created successfully'
-            }), 201
-    
+        }), 201
+
     except Exception as err:
         db.session.rollback()
-        return({"error": f"failed to create user. Error: {err}"}), 400
+        return jsonify({"error": f"Failed to create user. Error: {err}"}), 400
     
     
 @app.route('/user/users', methods=['GET'])
