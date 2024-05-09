@@ -105,7 +105,7 @@ def signup():
         return({"error": f"failed to create user. Error: {err}"}), 400
     
     
-@app.route('/users', methods=['GET'])
+@app.route('/user/users', methods=['GET'])
 @jwt_required()
 def users():
     users = User.query.all()
@@ -136,7 +136,7 @@ def users():
 
     return jsonify({'users': user_list}), 200
 
-@app.route('/route-plans', methods=['GET', 'POST'])
+@app.route('/user/route-plans', methods=['GET', 'POST'])
 @jwt_required()
 def route_plan_details():
     if request.method == 'GET':
@@ -197,7 +197,7 @@ def route_plan_details():
             db.session.rollback()
             return jsonify({'error': f"Internal server error. Error: {err}"}), 500
 
-@app.route('/route-plans/<int:route_plan_id>', methods=['PUT'])
+@app.route('/user/route-plans/<int:route_plan_id>', methods=['PUT'])
 @jwt_required()
 def update_route_plan(route_plan_id):
     data = request.get_json()
@@ -225,7 +225,7 @@ def update_route_plan(route_plan_id):
         db.session.rollback()
         return jsonify({'error': f"Internal server error. Error: {err}"}), 500
     
-@app.route('/locations', methods=['GET', 'POST'])
+@app.route('/user/locations', methods=['GET', 'POST'])
 @jwt_required()
 def location_details():
     if request.method == 'GET':
@@ -556,7 +556,7 @@ def edit_outlet_details(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@app.route("/notifications", methods=["GET", "POST"])
+@app.route("/user/notifications", methods=["GET", "POST"])
 @jwt_required()
 def manage_notifications():
     if request.method == "GET":
@@ -616,7 +616,7 @@ def manage_notifications():
             db.session.rollback()
             return jsonify({"error": str(err)}), 500
 
-@app.route("/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
+@app.route("/user/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 def update_or_delete_notification(notification_id):
     notification = Notification.query.get(notification_id)
