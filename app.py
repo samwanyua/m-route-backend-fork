@@ -434,6 +434,15 @@ def change_password():
 
     if not old_password or not new_password or not email:
         return jsonify({"error": "Missing required fields."}), 400
+    
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return jsonify({'message': 'Invalid email address'}), 400
+
+    if not isinstance(old_password, str) or len(old_password) < 6:
+        return jsonify({'message': 'Password must be a string and at least 6 characters long'}), 400
+    
+    if not isinstance(new_password, str) or len(new_password) < 6:
+        return jsonify({'message': 'Password must be a string and at least 6 characters long'}), 400
 
     user = User.query.filter_by(email=email).first()
     
