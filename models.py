@@ -23,14 +23,6 @@ class User(db.Model):
     last_login = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
     last_password_change = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
 
-    # def change_password(self, new_password):
-    #     self.password = new_password
-    #     self.last_password_change = datetime.now(timezone.utc)
-
-    # def password_expired(self):
-    #     # Check if the password was last changed more than 14 days ago
-    #     return (datetime.now(timezone.utc) - self.last_password_change) > timedelta(days=14)
-
 
 class RoutePlan(db.Model):
 
