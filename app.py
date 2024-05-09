@@ -557,8 +557,6 @@ def edit_outlet_details(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-print("HEllo, world")
-
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
 
