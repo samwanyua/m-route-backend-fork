@@ -593,7 +593,11 @@ def change_password():
     data = request.get_json()
 
     if not data:
-        return jsonify({"error": "Invalid request"}), 400
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+            }), 400
     
     old_password = data.get("old_password")
     new_password = data.get("new_password")
@@ -601,19 +605,39 @@ def change_password():
      
 
     if old_password == new_password:
-        return jsonify({"message": "Old password and new password cannot be the same."}), 400
+        return jsonify({
+            "message": "Old password and new password cannot be the same.",
+            "successful": False,
+            "status_code": 400
+            }), 400
 
     if not old_password or not new_password or not email:
-        return jsonify({"error": "Missing required fields."}), 400
+        return jsonify({
+            "message": "Missing required fields.",
+            "successful": False,
+            "status_code": 400
+            }), 400
     
     if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        return jsonify({'message': 'Invalid email address'}), 400
+        return jsonify({
+            'message': 'Invalid email address',
+            "successful": False,
+            "status_code": 400
+            }), 400
 
     if not isinstance(old_password, str) or len(old_password) < 6:
-        return jsonify({'message': 'Password must be a string and at least 6 characters long'}), 400
+        return jsonify({
+            'message': 'Password must be a string and at least 6 characters long',
+            "successful": False,
+            "status_code": 400
+            }), 400
     
     if not isinstance(new_password, str) or len(new_password) < 6:
-        return jsonify({'message': 'Password must be a string and at least 6 characters long'}), 400
+        return jsonify({
+            'message': 'Password must be a string and at least 6 characters long',
+            "successful": False,
+            "status_code": 400
+            }), 400
 
     user = User.query.filter_by(email=email).first()
     
@@ -632,12 +656,24 @@ def change_password():
             user_id = user_id
 
             log_activity(f'Changed password.', user_id)
-            return jsonify({"message": "Password changed successfully"}), 201
+            return jsonify({
+                "message": "Password changed successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
         
         else:
-            return jsonify({"error": "Invalid old password"}), 401
+            return jsonify({
+                "message": "Invalid old password",
+                "successful": False,
+                "status_code": 401
+                }), 401
     else:
-        return jsonify({"error": "User not found"}), 404
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+            }), 404
 
 
 @app.route("/user/edit-profile-image/<int:id>", methods=["PUT"])
@@ -648,13 +684,21 @@ def edit_user_image(id):
 
     if not data:
 
-        return jsonify({"message": "Invalid request"}), 400
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+            }), 400
     
     new_avatar = data.get("avatar")
 
     # Check if avatar data is provided and is of type bytes
     if new_avatar is not None and not isinstance(new_avatar, bytes):
-        return jsonify({"message": "Avatar data must be in bytes format (BYTEA)"}), 400
+        return jsonify({
+            "message": "Avatar data must be in bytes format (BYTEA)",
+            "successful": False,
+            "status_code": 400
+            }), 400
 
     user = User.query.get(id)
 
@@ -665,14 +709,26 @@ def edit_user_image(id):
         try:
             db.session.commit()
             log_activity('Change profile image', id)
-            return jsonify({"message": "Profile image updated successfully"}), 201
+            return jsonify({
+                "message": "Profile image updated successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
         
         except Exception as e:
             db.session.rollback()
-            return jsonify({"error": str(e)}), 500
+            return jsonify({
+                "message": str(e),
+                "successful": False,
+                "status_code": 500
+                }), 500
         
     else:
-        return jsonify({"error": "User not found"}), 404
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+            }), 404
     
 
 @app.route("/user/get-logs", methods=["GET"])
@@ -683,7 +739,11 @@ def get_users_activities():
         activity_logs = ActivityLog.query.all()
 
         if not activity_logs:
-            return jsonify({"message": "No logs available"}), 400
+            return jsonify({
+                "message": "No logs available",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         activity_logs_data = []
 
@@ -700,10 +760,18 @@ def get_users_activities():
         user_id = 3
         log_activity('Viewed activity logs', user_id)
 
-        return jsonify({"activity_logs": activity_logs_data}), 200
+        return jsonify({
+            "successful": True,
+            "status_code": 200,
+            "activity_logs": activity_logs_data
+            }), 200
     
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": str(e),
+            "successful": False,
+            "status_code": 500
+            }), 500
 
 
 @app.route("/user/outlets", methods=["GET", "POST"])
@@ -716,7 +784,11 @@ def create_and_get_outlet_details():
             outlets = Outlet.query.all()
 
             if not outlets:
-                return jsonify({"message": "There are no outlets"}), 400
+                return jsonify({
+                    "message": "There are no outlets",
+                    "successful": False,
+                    "status_code": 400
+                    }), 400
             
             outlet_list = []
 
@@ -736,7 +808,11 @@ def create_and_get_outlet_details():
             return jsonify(outlet_list), 200
 
         except Exception as err:
-            return jsonify({"message": f"Error: {err}"}), 500
+            return jsonify({
+                "message": f"Error: {err}",
+                "successful": False,
+                "status_code": 500
+                }), 500
         
         
     elif request.method == "POST":
@@ -751,16 +827,32 @@ def create_and_get_outlet_details():
         contact_info = data.get("contact_info")
 
         if not all([name, address, contact_info]):
-            return jsonify({"message": "Missing required fields"}), 400
+            return jsonify({
+                "message": "Missing required fields",
+                "successful": False,
+                "status_code": 400
+                }), 400
         
         if not isinstance(name, str) or len(name) > 100:
-            return jsonify({'message': 'Name must be a string and not more than 100 characters'}), 400
+            return jsonify({
+                'message': 'Name must be a string and not more than 100 characters',
+                "successful": False,
+                "status_code": 400
+                }), 400
         
         if not isinstance(address, str) or len(address) > 200:
-            return jsonify({'message': 'Address must be a string and not more than 200 characters'}), 400
+            return jsonify({
+                'message': 'Address must be a string and not more than 200 characters',
+                "successful": False,
+                "status_code": 400
+                }), 400
         
         if not isinstance(contact_info, str) or len(contact_info) > 100:
-            return jsonify({'message': 'Contact info must be a string and not more than 100 characters'}), 400
+            return jsonify({
+                'message': 'Contact info must be a string and not more than 100 characters',
+                "successful": False,
+                "status_code": 400
+                }), 400
         
         new_outlet = Outlet(
             name=name,
@@ -777,12 +869,20 @@ def create_and_get_outlet_details():
             # user_id = 3
             log_activity(f'Created outlet: {name}', user_id)
 
-            return jsonify({"message": "Outlet created successfully"}), 201
+            return jsonify({
+                "message": "Outlet created successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
 
         except Exception as err:
 
             db.session.rollback()
-            return jsonify({"error": f"Error: {err}"}), 500
+            return jsonify({
+                "error": f"Error: {err}",
+                "successful": False,
+                "status_code": 500
+                }), 500
 
 
 @app.route("/user/edit-outlet/<int:id>", methods=["PUT"])
