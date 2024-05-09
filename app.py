@@ -585,7 +585,7 @@ def create_and_get_outlet_details():
         if not isinstance(name, str) or len(name) > 100:
             return jsonify({'message': 'Name must be a string and not more than 100 characters'}), 400
         
-        if not isinstance(address, str) or len(address) > 100:
+        if not isinstance(address, str) or len(address) > 200:
             return jsonify({'message': 'Address must be a string and not more than 200 characters'}), 400
         
         if not isinstance(contact_info, str) or len(contact_info) > 100:
@@ -627,6 +627,18 @@ def edit_outlet_details(id):
         
         if not outlet:
             return jsonify({"error": "Outlet not found"}), 404
+        
+        if 'name' in data:
+            if not isinstance(data['name'], str) or len(data['name']) > 100:
+                return jsonify({'message': 'Name must be a string and not exceed 100 characters'}), 400
+            
+        if 'address' in data:
+            if not isinstance(data['address'], str) or len(data['address']) > 200:
+                return jsonify({'message': 'Address must be a string and not exceed 200 characters'}), 400
+            
+        if 'contact_info' in data:
+            if not isinstance(data['contact_info'], str) or len(data['contact_info']) > 100:
+                return jsonify({'message': 'Contact info must be a string and not exceed 100 characters'}), 400
 
         # Update outlet attributes if provided in the request data
         if 'name' in data:
