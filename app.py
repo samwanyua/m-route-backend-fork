@@ -200,6 +200,20 @@ def route_plan_details():
         # Check for required fields
         if not all([merchandiser_id, manager_id, date_range, status]):
             return jsonify({'message': 'Missing required fields'}), 400
+        
+        # Check if data adheres to model specifications
+        if not isinstance(merchandiser_id, int) or not isinstance(manager_id, int):
+            return jsonify({'message': 'Merchandiser ID and Manager ID must be integers'}), 400
+
+        if not isinstance(date_range, str) or len(date_range) > 20:
+            return jsonify({'message': 'Date range must be a string and not exceed 20 characters'}), 400
+
+        if instructions and not isinstance(instructions, str):
+            return jsonify({'message': 'Instructions must be a string'}), 400
+
+        if status not in ['complete', 'pending']:
+            return jsonify({'message': 'Status must be either "complete" or "pending"'}), 400
+
 
         # Create a new route plan object
         new_route_plan = RoutePlan(
