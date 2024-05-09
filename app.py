@@ -701,6 +701,13 @@ def manage_notifications():
 
         if not all([recipient_id, content]):
             return jsonify({"message": "Missing required fields"}), 400
+        
+        # Check data types and formats
+        if not isinstance(recipient_id, int):
+            return jsonify({"message": "Recipient ID must be an integer"}), 400
+
+        if not isinstance(content, str):
+            return jsonify({"message": "Content must be a string"}), 400
 
         new_notification = Notification(
             recipient_id=recipient_id,
