@@ -132,6 +132,7 @@ def users():
         user_list.append(user_info)
 
     # user_id = get_jwt_identity()
+
     # log_activity('Viewed user list', user_id)
 
     return jsonify({'users': user_list}), 200
@@ -421,7 +422,7 @@ def edit_user_image(id):
     
 
 @app.route("/user/get-logs", methods=["GET"])
-@jwt_required()
+# @jwt_required()
 def get_users_activities():
 
     try:
@@ -441,8 +442,8 @@ def get_users_activities():
             }
             activity_logs_data.append(log_data)
         
-        user_id = get_jwt_identity()
-        # user_id = 3
+        # user_id = get_jwt_identity()
+        user_id = 3
         log_activity('Viewed activity logs', user_id)
 
         return jsonify({"activity_logs": activity_logs_data}), 200
@@ -556,6 +557,7 @@ def edit_outlet_details(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/user/notifications", methods=["GET", "POST"])
 @jwt_required()
 def manage_notifications():
@@ -659,6 +661,7 @@ def update_or_delete_notification(notification_id):
         except Exception as err:
             db.session.rollback()
             return jsonify({"error": str(err)}), 500
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
