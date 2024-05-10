@@ -34,7 +34,7 @@ class RoutePlan(db.Model):
     merchandiser_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
     manager_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
     date_range = db.Column(JSON, nullable=False)
-    instructions = db.Column(db.Text)
+    instructions = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False) # complete or pending
 
     merchandiser = db.relationship('User', foreign_keys=[merchandiser_id], backref=db.backref('route_plans', lazy=True))
