@@ -221,16 +221,11 @@ def users():
         user_info = {
             'id': user.id,
             'first_name': user.first_name,
-            'middle_name': user.middle_name,
             'last_name': user.last_name,
-            'national_id_no': user.national_id_no,
             'username': user.username,
             'email': user.email,
             'role': user.role,
-            'status': user.status,
-            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'), 
-            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S'), 
-            'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  
+            'status': user.status, 
             "staff_no": user.staff_no,
         }
         user_list.append(user_info)
@@ -568,8 +563,6 @@ def location_details():
                 "status_code": 500
                 }), 500
         
-
-
 
 @app.route("/users/login", methods=["POST"])
 def login_user():
