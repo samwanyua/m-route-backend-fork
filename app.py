@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
+
 import os
 import re
 
@@ -23,6 +24,7 @@ app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15)
 
 
 db.init_app(app)
@@ -52,7 +54,7 @@ def log_activity(action, user_id):
         print(f"Failed to log activity. Error: {err}")
 
 
-@app.route('/signup', methods=['POST'])
+@app.route('/user/signup', methods=['POST'])
 def signup():
     data = request.get_json()
 
@@ -72,7 +74,23 @@ def signup():
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
-    staff_no = data.ge("staff_no")
+    staff_no = data.get("staff_no")
+
+    existing_user = User.query.filter(User.staff_no == staff_no).first()
+
+    if existing_user:
+        return jsonify({
+            'message': 'Staff number already assigned',
+            "successful": False,
+            "status_code": 400
+            }), 400
+
+    if User.query.filter(User.national_id_no == national_id_no).first():
+        return jsonify({
+            'message': 'Another user exists with the provided National ID Number',
+            "successful": False,
+            "status_code": 400
+            }), 400
 
     # Check for required fields
     if not all([first_name, last_name, national_id_no, username, email, password]):
@@ -146,7 +164,8 @@ def signup():
         }), 400
 
     # Hash the password before saving it
-    hashed_password = generate_password_hash(password)
+    # hashed_password = generate_password_hash(password)
+    hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
     # Create new user object
     new_user = User(
@@ -179,8 +198,8 @@ def signup():
         return jsonify({
             "message": f"Failed to create user. Error: {err}",
             "successful": False,
-            "status_code": 400
-            }), 400
+            "status_code": 500
+            }), 500
     
     
 @app.route('/user/users', methods=['GET'])
@@ -210,6 +229,8 @@ def users():
             'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
             'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
             'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+            "staff_no": user.staff_no,
+            "password": user.password,
         }
         user_list.append(user_info)
 
@@ -612,6 +633,9 @@ def login_user():
             "status_code": 404
             }), 404
     
+
+
+
 @app.route("/user/change-password", methods=["PUT"])
 def change_password():
     
@@ -648,10 +672,6 @@ def change_password():
             "status_code": 400
             }), 400
 
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
     if not isinstance(new_password, str) or len(new_password) < 6:
       
         return jsonify({
