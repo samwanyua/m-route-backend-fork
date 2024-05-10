@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
+import json
 
 import os
 import re
@@ -54,7 +55,7 @@ def log_activity(action, user_id):
         print(f"Failed to log activity. Error: {err}")
 
 
-@app.route('/user/signup', methods=['POST'])
+@app.route('/users/signup', methods=['POST'])
 def signup():
     data = request.get_json()
 
@@ -158,7 +159,7 @@ def signup():
     
     if not isinstance(staff_no, int):
         return({
-            'message': 'Invalid staff number',
+            'message': 'Staff number must be an integer',
             "successful": False,
             "status_code": 400
         }), 400
@@ -226,11 +227,10 @@ def users():
             'email': user.email,
             'role': user.role,
             'status': user.status,
-            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
-            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
-            'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  # Convert to string
+            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'), 
+            'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S'), 
+            'last_password_change': user.last_password_change.strftime('%Y-%m-%d %H:%M:%S'),  
             "staff_no": user.staff_no,
-            "password": user.password,
         }
         user_list.append(user_info)
 
@@ -243,7 +243,7 @@ def users():
         'message': user_list
         }), 200
 
-@app.route('/user/route-plans', methods=['GET', 'POST'])
+@app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
 def route_plan_details():
 
@@ -281,7 +281,7 @@ def route_plan_details():
         data = request.get_json()
         if not data:
             return jsonify({
-                "message": "Invalid request, JSON data required",
+                "message": "Invalid request",
                 "successful": False,
                 "status_code": 400
                 }), 400
@@ -310,12 +310,15 @@ def route_plan_details():
                 "status_code": 400
                 }), 400
 
-        if not isinstance(date_range, str) or len(date_range) > 20:
+        try:
+            json.loads(date_range)
+
+        except json.JSONDecodeError:
             return jsonify({
-                'message': 'Date range must be a string and not exceed 20 characters',
+                'message': 'Date range must be in valid JSON format',
                 "successful": False,
                 "status_code": 400
-                }), 400
+            }), 400
 
         if instructions and not isinstance(instructions, str):
             return jsonify({
@@ -371,39 +374,43 @@ def route_plan_details():
                 "status_code": 500
                 }), 500
 
-@app.route('/user/route-plans/<int:route_plan_id>', methods=['PUT'])
+@app.route('/users/route-plans/<int:route_plan_id>', methods=['PUT'])
 @jwt_required()
 def update_route_plan(route_plan_id):
+
     data = request.get_json()
 
     route_plan = db.session.get(RoutePlan, route_plan_id)
+
     if not route_plan:
-        return jsonify({'message': 'Route plan not found'}), 404
+        return jsonify({
+            'message': 'Route plan not found',
+            "successful": False,
+            "status_code": 404
+            }), 404
     
     # Check if data adheres to model specifications
     if 'merchandiser_id' in data:
-        if not isinstance(data['merchandiser_id'], int):
+        if not isinstance(data['merchandiser_id'], int) or not isinstance(data["manager_id"], int):
             return jsonify({
-                'message': 'Merchandiser ID must be an integer',
+                'message': 'Merchandiser and manager IDs must be an integer',
                 "successful": False,
                 "status_code": 400
                 }), 400
 
-    if 'manager_id' in data:
-        if not isinstance(data['manager_id'], int):
-            return jsonify({
-                'message': 'Manager ID must be an integer',
-                "successful": False,
-                "status_code": 400
-                }), 400
 
     if 'date_range' in data:
-        if not isinstance(data['date_range'], str) or len(data['date_range']) > 20:
+    # Attempt to load the value of date_range as JSON
+        try:
+            json.loads(data['date_range'])
+
+        except json.JSONDecodeError:
             return jsonify({
-                'message': 'Date range must be a string and not exceed 20 characters',
+                'message': 'Date range must be a valid JSON string',
                 "successful": False,
                 "status_code": 400
-                }), 400
+            }), 400
+        
 
     if 'instructions' in data:
         if not isinstance(data['instructions'], str):
@@ -436,8 +443,8 @@ def update_route_plan(route_plan_id):
         return jsonify({
             'message': 'Route plan updated successfully',
             "successful": True,
-            "status_code": 200
-            }), 200
+            "status_code": 201
+            }), 201
 
     except Exception as err:
 
@@ -448,7 +455,7 @@ def update_route_plan(route_plan_id):
             "status_code": 500
             }), 500
     
-@app.route('/user/locations', methods=['GET', 'POST'])
+@app.route('/users/locations', methods=['GET', 'POST'])
 @jwt_required()
 def location_details():
     if request.method == 'GET':
@@ -480,6 +487,7 @@ def location_details():
             'message': location_list}), 200
     
     elif request.method == 'POST':
+
         data = request.get_json()
 
         # Extract required fields from the JSON data
@@ -500,9 +508,10 @@ def location_details():
             merchandiser_id = int(merchandiser_id)
             latitude = float(latitude)
             longitude = float(longitude)
+
         except ValueError:
             return jsonify({
-                'message': 'Invalid data format',
+                'message': 'Merchandiser ID must be an integer, and latitude and longitude must be in decimals',
                 "successful": False,
                 "status_code": 400
                 }), 400
@@ -545,7 +554,7 @@ def location_details():
                 }), 500
         
 
-@app.route("/user/login", methods=["POST"])
+@app.route("/users/login", methods=["POST"])
 def login_user():
 
     data = request.get_json()
@@ -559,7 +568,7 @@ def login_user():
             }), 400
     
     email = data.get("email")
-    password = data.get("password_hash")
+    password = data.get("password")
 
     
     if not email or not password:
@@ -590,7 +599,7 @@ def login_user():
             if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(days=14):
                 
                 return jsonify({
-                    "message": "Your password has expired. Please change it.",
+                    "message": "Your password has expired",
                     "successful": False,
                     "status_code": 403
                     }), 403
@@ -634,9 +643,7 @@ def login_user():
             }), 404
     
 
-
-
-@app.route("/user/change-password", methods=["PUT"])
+@app.route("/users/change-password", methods=["PUT"])
 def change_password():
     
     data = request.get_json()
@@ -655,19 +662,18 @@ def change_password():
     # new_password must be string and length must be <= 120
      
 
-    if old_password == new_password:
-        return jsonify({
-
-            "message": "Old password and new password cannot be the same",
-
-            "successful": False,
-            "status_code": 400
-            }), 400
-
     if not old_password or not new_password or not email:
         return jsonify({
 
             "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+            }), 400
+    
+    if old_password == new_password:
+        return jsonify({
+
+            "message": "Old password and new password cannot be the same",
             "successful": False,
             "status_code": 400
             }), 400
@@ -693,15 +699,24 @@ def change_password():
 
             user.password = hashed_new_password
             user.last_password_change = datetime.now(timezone.utc)
-            db.session.commit()
-            user_id = user_id
 
-            log_activity(f'Changed password.', user_id)
-            return jsonify({
-                "message": "Password changed successfully",
-                "successful": True,
-                "status_code": 201
-                            }), 201
+            try:
+                db.session.commit()
+                user_id = user_id
+
+                log_activity(f'Changed password.', user_id)
+                return jsonify({
+                    "message": "Password changed successfully",
+                    "successful": True,
+                    "status_code": 201
+                                }), 201
+            except Exception as err:
+                db.session.rollback()
+                return jsonify({
+                    "message": f"Failed to change signature. Error{err}",
+                    "successful": False,
+                    "status_code": 500
+                }), 500
           
         else:
             return jsonify({
@@ -717,7 +732,7 @@ def change_password():
             }), 404
 
 
-@app.route("/user/edit-profile-image/<int:id>", methods=["PUT"])
+@app.route("/users/edit-profile-image/<int:id>", methods=["PUT"])
 @jwt_required()
 def edit_user_image(id):
     
@@ -759,7 +774,7 @@ def edit_user_image(id):
         except Exception as e:
             db.session.rollback()
             return jsonify({
-                "message": str(e),
+                "message": f"Failed to update, error: {e}",
                 "successful": False,
                 "status_code": 500
                 }), 500
@@ -774,7 +789,7 @@ def edit_user_image(id):
 
     
 
-@app.route("/user/get-logs", methods=["GET"])
+@app.route("/users/get-logs", methods=["GET"])
 @jwt_required()
 def get_users_activities():
 
@@ -818,7 +833,7 @@ def get_users_activities():
             }), 500
 
 
-@app.route("/user/outlets", methods=["GET", "POST"])
+@app.route("/users/outlets", methods=["GET", "POST"])
 @jwt_required()
 def create_and_get_outlet_details():
     
@@ -893,7 +908,7 @@ def create_and_get_outlet_details():
         
         if not isinstance(name, str) or len(name) > 100:
             return jsonify({
-                'message': 'Name must be a string and not more than 100 characters',
+                'message': 'Outlet name must be a string and not more than 100 characters',
                 "successful": False,
                 "status_code": 400
                 }), 400
@@ -947,14 +962,14 @@ def create_and_get_outlet_details():
             db.session.rollback()
             return jsonify({
 
-                "message": f"message: {err}",
+                "message": f"Error: {err}",
 
                 "successful": False,
                 "status_code": 500
                 }), 500
 
 
-@app.route("/user/edit-outlet/<int:id>", methods=["PUT"])
+@app.route("/users/edit-outlet/<int:id>", methods=["PUT"])
 @jwt_required()
 def edit_outlet_details(id):
     
@@ -974,20 +989,20 @@ def edit_outlet_details(id):
             return jsonify({
                 "message": "Outlet not found",
                 "successful": False,
-                "status_code": 400
+                "status_code": 404
                 }), 404
         
         if 'name' in data:
             if not isinstance(data['name'], str) or len(data['name']) > 100:
                 return jsonify({
-                    'message': 'Name must be a string and not exceed 100 characters',
+                    'message': 'Outlet name must be a string and not exceed 100 characters',
                     "successful": False,
                     "status_code": 400
                     }), 400
         if "street" in data:
             if not isinstance(data["street"], str) or len(data["street"]) > 200:
                 return jsonify({
-                    'message': 'Name must be a string and not exceed 200 characters',
+                    'message': 'Street name must be a string and not exceed 200 characters',
                     "successful": False,
                     "status_code": 400
                     }), 400
@@ -1040,9 +1055,10 @@ def edit_outlet_details(id):
             }), 500
 
 
-@app.route("/user/notifications", methods=["GET", "POST"])
+@app.route("/users/notifications", methods=["GET", "POST"])
 @jwt_required()
 def manage_notifications():
+
     if request.method == "GET":
         try:
             user_id = get_jwt_identity()
@@ -1103,10 +1119,18 @@ def manage_notifications():
         
         # Check data types and formats
         if not isinstance(recipient_id, int):
-            return jsonify({"message": "Recipient ID must be an integer"}), 400
+            return jsonify({
+                "message": "Recipient ID must be an integer",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
         if not isinstance(content, str):
-            return jsonify({"message": "Content must be a string"}), 400
+            return jsonify({
+                "message": "Content must be a string",
+                "successful": False,
+                "status_code": 400
+                }), 400
 
 
         new_notification = Notification(
@@ -1137,7 +1161,7 @@ def manage_notifications():
                 "status_code": 500
                 }), 500
 
-@app.route("/user/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
+@app.route("/users/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 def update_or_delete_notification(notification_id):
 
@@ -1161,6 +1185,7 @@ def update_or_delete_notification(notification_id):
                 }), 400
 
         status = data.get("status")
+        
         if status not in ["read", "unread"]:
             return jsonify({
                 "message": "Invalid status value",
@@ -1211,6 +1236,7 @@ def update_or_delete_notification(notification_id):
                 "successful": False,
                 "status_code": 500
                 }), 500
+
 
 
 if __name__ == '__main__':
