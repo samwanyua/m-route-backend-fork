@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
+from sqlalchemy import func, and_
 import json
 
 import os
@@ -459,8 +460,22 @@ def update_route_plan(route_plan_id):
 @jwt_required()
 def location_details():
     if request.method == 'GET':
-        locations = Location.query.all()
-        if not locations:
+        # locations = Location.query.all()
+
+        # Group locations by merchandiser_id and select the latest timestamp for each group
+        latest_locations_subquery = db.session.query(Location.merchandiser_id,
+                                                      func.max(Location.timestamp).label('latest_timestamp'))\
+                                               .group_by(Location.merchandiser_id)\
+                                               .subquery()
+
+        # Join the subquery with the Location table to get the latest location details for each merchandiser
+        latest_locations_query = db.session.query(Location)\
+                                           .join(latest_locations_subquery,
+                                                 and_(Location.merchandiser_id == latest_locations_subquery.c.merchandiser_id,
+                                                      Location.timestamp == latest_locations_subquery.c.latest_timestamp))\
+                                           .all()
+
+        if not latest_locations_query:
             return jsonify({
                 'message': 'No locations found',
                 "successful": False,
@@ -468,7 +483,7 @@ def location_details():
                 }), 404
 
         location_list = []
-        for location in locations:
+        for location in latest_locations_query:
             location_info = {
                 'id': location.id,
                 'merchandiser_id': location.merchandiser_id,
@@ -553,6 +568,8 @@ def location_details():
                 "status_code": 500
                 }), 500
         
+
+
 
 @app.route("/users/login", methods=["POST"])
 def login_user():
