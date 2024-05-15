@@ -3,7 +3,7 @@ from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_raw_jwt, create_access_token
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
@@ -24,7 +24,7 @@ app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
 
 db.init_app(app)
@@ -63,6 +63,36 @@ def log_activity(action, user_id):
             "status_code": 500
         }), 500
 
+
+@app.route("/users/logout", methods=["POST"])
+@jwt_required()
+def logout_user():
+
+    data = request.get_json()
+
+    if"access_token" not in data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+            }), 400
+    
+    access_token = data.get('access_token')
+
+    blacklist = set()
+
+    jti = get_raw_jwt(access_token)['jti']
+    blacklist.add(jti)
+
+    user_id = get_jwt_identity()
+    log_activity('Logout', user_id)
+
+    return jsonify({
+        "message": "Logout successful.",
+        "successful": True,
+        "status_code": 201
+         
+    }), 201
 
 @app.route('/users/signup', methods=['POST'])
 def signup():
