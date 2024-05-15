@@ -643,7 +643,7 @@ def login_user():
                 "successful": True,
                 "status_code": 201,
                 "access_token": access_token,
-                "message": "Login successful"
+                "message": user_data
                             }), 201
         
         else:
@@ -659,6 +659,10 @@ def login_user():
             "status_code": 404
             }), 404
     
+
+
+
+
 
 @app.route("/users/change-password", methods=["PUT"])
 def change_password():
