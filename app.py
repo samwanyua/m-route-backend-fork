@@ -295,7 +295,7 @@ def route_plan_details():
         date_range = data.get('date_range')
         instructions = data.get('instructions')
         status = data.get('status')
-        staff_no = data("staff_no")
+        staff_no = data.get("staff_no")
 
         # Check for required fields
         if not all([staff_no, manager_id, date_range, status]):
