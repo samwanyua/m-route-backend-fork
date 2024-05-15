@@ -1,15 +1,13 @@
-from flask import Flask, request, make_response, jsonify
+from flask import Flask, request, jsonify
 from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
-from sqlalchemy.exc import IntegrityError
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
-from werkzeug.security import generate_password_hash
 from sqlalchemy import func, and_
 import json
 
@@ -17,7 +15,7 @@ import os
 import re
 
 
-from models import User,  RoutePlan, Location, Outlet, Notification, ActivityLog
+from models import User,  RoutePlan, Location, Outlet, Notification, ActivityLog, Review
 
 load_dotenv()
 
@@ -50,10 +48,20 @@ def log_activity(action, user_id):
         )
         db.session.add(new_activity)
         db.session.commit()
+        return jsonify({
+            'message': 'Activity logged successfully',
+            "successful": True,
+            "status_code": 201
+        }), 201
 
     except Exception as err:
         db.session.rollback()
         print(f"Failed to log activity. Error: {err}")
+        return jsonify({
+            'message': f'Error {err}',
+            "successful": False,
+            "status_code": 500
+        }), 500
 
 
 @app.route('/users/signup', methods=['POST'])
@@ -166,7 +174,6 @@ def signup():
         }), 400
 
     # Hash the password before saving it
-    # hashed_password = generate_password_hash(password)
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
     # Create new user object
@@ -204,7 +211,7 @@ def signup():
             }), 500
     
     
-@app.route('/user/users', methods=['GET'])
+@app.route('/users', methods=['GET'])
 @jwt_required()
 def users():
     users = User.query.all()
@@ -647,7 +654,7 @@ def login_user():
                 }), 401
     else:
         return jsonify({
-            "messager": "User not found",
+            "message": "User not found",
             "successful": False,
             "status_code": 404
             }), 404
@@ -1247,6 +1254,123 @@ def update_or_delete_notification(notification_id):
                 "status_code": 500
                 }), 500
 
+
+@app.route("/users/get-reviews", methods=["GET"])
+@jwt_required()
+def get_reviews():
+
+    reviews = Review.query.all()
+
+    if not reviews:
+        return jsonify({
+            "message": "There are no reviews",
+            "status_code": 404,
+            "successful": False
+        }), 404
+
+    reviews_data = []
+
+    for review in reviews:
+        reviews_data.append({
+            "id": review.id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "activity": review.activity
+        })
+
+    return jsonify({
+        "message": reviews_data,
+        "successful": True,
+        "status_code": 200
+    }), 200
+
+
+@app.route("/users/create-reviews", methods=["POST"])
+@jwt_required()
+def create_reviews():
+    
+    data = request.get_json()
+
+    if not data:
+
+        return jsonify({
+            "message": "Invalid data",
+            "status_code": 400,
+            "successful": False
+        }), 400
+    
+    staff_no = data.get("staff_no")
+    activity = data.get("activity")
+    comment = data.get("commet")
+    timestamp = data.get("timestamp")
+    rating = data.get("rating")
+    manager_id = data.get("manager_id")
+
+    if not staff_no or not activity or not comment or not timestamp or not rating or not manager_id:
+        return jsonify({
+            "message": "Missing required fields",
+            "status_code": 400,
+            "successful": False
+        }), 400
+    
+    if not isinstance(staff_no, int) or not isinstance(rating, int) or not isinstance(manager_id, str):
+        return jsonify({
+            "message": "Staff number, manager ID, and rating must be a numbers",
+            "status_code": 400,
+            "successful": False
+        }), 400
+    
+    if not all(isinstance(value, str) for value in [activity, comment, timestamp]):
+        return jsonify({
+            "message": "Comment, and activity must be letters",
+            "status_code": 400,
+            "successful": False
+        }), 400
+    
+    if len(activity) > 200:
+        return jsonify({
+            "message": "Activity must be less than 201 characters long",
+            "status_code": 400,
+            "successful": False
+        }), 400
+    
+    merchandiser = User.query.filter(staff_no == staff_no).first()
+
+    if not merchandiser:
+        return jsonify({
+            "message": "Invalid merchandiser",
+            "status_code": 400,
+            "successful": False
+        }),400
+    
+    merchandiser_id = merchandiser.id
+
+    new_review = Review(
+        manager_id = manager_id,
+        merchandiser_id = merchandiser_id,
+        activity = activity,
+        comment = comment,
+        rating = rating,
+        timestamp = timestamp
+    )
+
+    try:
+        db.session.add(new_review)
+        db.session.commit()
+        return jsonify({
+            "message": "Review added successfully",
+            "status_code": 201,
+            "successful": True
+        }),201
+    
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+            "message": f"Error {err}",
+            "status_code": 500,
+            "successful": False
+        }), 500
+    
 
 
 if __name__ == '__main__':
