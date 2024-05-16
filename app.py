@@ -3,7 +3,8 @@ from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_raw_jwt, create_access_token
+# from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_raw_jwt, create_access_token
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_jwt, create_access_token
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
@@ -36,6 +37,8 @@ bcrypt = Bcrypt(app)
 api = Api(app)
 CORS(app)
 
+blacklist = set()
+
 @app.route('/')
 def index():
     return '<h1>Merchandiser Route App</h1>'
@@ -67,23 +70,10 @@ def log_activity(action, user_id):
 @app.route("/users/logout", methods=["POST"])
 @jwt_required()
 def logout_user():
-
-    data = request.get_json()
-
-    if"access_token" not in data:
-        return jsonify({
-            "message": "Invalid request",
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
-    access_token = data.get('access_token')
-
-    blacklist = set()
-
-    jti = get_raw_jwt(access_token)['jti']
+    jwt = get_jwt()
+    jti = jwt["jti"]
     blacklist.add(jti)
-
+    
     user_id = get_jwt_identity()
     log_activity('Logout', user_id)
 
@@ -91,8 +81,14 @@ def logout_user():
         "message": "Logout successful.",
         "successful": True,
         "status_code": 201
-         
     }), 201
+
+@jwt.token_in_blocklist_loader
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    return jti in blacklist
+
+
 
 @app.route('/users/signup', methods=['POST'])
 def signup():
@@ -216,7 +212,7 @@ def signup():
         email=email,
         password=hashed_password,
         staff_no = staff_no,
-        role='merchandiser',  # merchandiser or manager or admin
+        role='manager',  # merchandiser or manager or admin
     )
 
     access_token = create_access_token(identity=new_user.id)
