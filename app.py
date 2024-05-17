@@ -425,6 +425,7 @@ def route_plan_details():
                 "status_code": 500
                 }), 500
 
+
 @app.route('/users/route-plans/<int:route_plan_id>', methods=['PUT'])
 @jwt_required()
 def update_route_plan(route_plan_id):
@@ -449,40 +450,24 @@ def update_route_plan(route_plan_id):
                 "status_code": 400
                 }), 400
 
-
     if 'date_range' in data:
-    # Attempt to load the value of date_range as JSON
+        # Attempt to parse the date range string
         try:
-            json.loads(data['date_range'])
-
-        except json.JSONDecodeError:
+            start_date = datetime.strptime(data['date_range']['start_date'], '%d/%m/%Y %I:%M %p')
+            end_date = datetime.strptime(data['date_range']['end_date'], '%d/%m/%Y %I:%M %p')
+            # Assign the parsed dates to the route plan
+            route_plan.start_date = start_date
+            route_plan.end_date = end_date
+        except ValueError:
             return jsonify({
-                'message': 'Date range must be a valid JSON string',
+                'message': 'Invalid date format. Please provide dates in the format: "dd/mm/yyyy hh:mm am/pm"',
                 "successful": False,
                 "status_code": 400
             }), 400
-        
-
-    if 'instructions' in data:
-        if not isinstance(data['instructions'], str):
-            return jsonify({
-                'message': 'Instructions must be a string',
-                "successful": False,
-                "status_code": 400
-                }), 400
-
-    if 'status' in data:
-        if data['status'] not in ['complete', 'pending']:
-            return jsonify({
-                'message': 'Status must be either "complete" or "pending"',
-                "successful": False,
-                "status_code": 400
-                }), 400
 
     # Update route plan attributes
     route_plan.merchandiser_id = data.get('merchandiser_id', route_plan.merchandiser_id)
     route_plan.manager_id = data.get('manager_id', route_plan.manager_id)
-    route_plan.date_range = data.get('date_range', route_plan.date_range)
     route_plan.instructions = data.get('instructions', route_plan.instructions)
     route_plan.status = data.get('status', route_plan.status)
 
@@ -498,13 +483,13 @@ def update_route_plan(route_plan_id):
             }), 201
 
     except Exception as err:
-
         db.session.rollback()
         return jsonify({
             'message': f"Internal server error. Error: {err}",
             "successful": False,
             "status_code": 500
             }), 500
+
     
 @app.route('/users/locations', methods=['GET', 'POST'])
 @jwt_required()
