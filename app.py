@@ -3,7 +3,6 @@ from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
-# from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_raw_jwt, create_access_token
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token, get_jwt, unset_jwt_cookies
 from models import db
 from datetime import datetime, timezone, timedelta
@@ -79,8 +78,6 @@ def logout_user():
 
     # Extract JTI from the token
     jti = get_jwt()["jti"]
-
-    # Add the JTI to the blacklist
     blacklist.add(jti)
 
     # Log the logout activity
@@ -351,16 +348,34 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 400
                 }), 400
-
-        try:
-            json.loads(date_range)
-
-        except json.JSONDecodeError:
+        
+        if not isinstance(date_range, dict):
             return jsonify({
-                'message': 'Date range must be in valid JSON format',
+                'message': 'Date range must be a dictionary',
                 "successful": False,
                 "status_code": 400
             }), 400
+
+        start_date = date_range.get('start_date')
+        end_date = date_range.get('end_date')
+
+        if not all([start_date, end_date]):
+            return jsonify({
+                'message': 'Missing start_date or end_date in date_range',
+                "successful": False,
+                "status_code": 400
+            }), 400
+        
+        # # Validate start_date and end_date format
+        # try:
+        #     datetime.strptime(start_date, '%d/%m/%Y %I:%M%p')
+        #     datetime.strptime(end_date, '%d/%m/%Y %I:%M%p')
+        # except ValueError:
+        #     return jsonify({
+        #         'message': 'Invalid start_date or end_date format',
+        #         "successful": False,
+        #         "status_code": 400
+        #     }), 400
 
         if instructions and not isinstance(instructions, str):
             return jsonify({
@@ -377,15 +392,15 @@ def route_plan_details():
                 }), 400
         
 
-        user = User.query.filter(staff_no == staff_no).first()
+        user = User.query.filter_by(staff_no=staff_no, role='merchandiser').first()
 
         if not user:
-
             return jsonify({
-                'message': 'Invalid staff number',
+                'message': 'Invalid staff number or user is not a merchandiser',
                 "successful": False,
                 "status_code": 400
-                }), 400
+            }), 400
+
 
         # Create a new route plan object
         new_route_plan = RoutePlan(
