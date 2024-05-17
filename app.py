@@ -465,6 +465,21 @@ def update_route_plan(route_plan_id):
                 "status_code": 400
             }), 400
 
+    if 'instructions' in data:
+        if not isinstance(data['instructions'], str):
+            return jsonify({
+                'message': 'Instructions must be a string',
+                "successful": False,
+                "status_code": 400
+                }), 400
+
+    if 'status' in data:
+        if data['status'] not in ['complete', 'pending']:
+            return jsonify({
+                'message': 'Status must be either "complete" or "pending"',
+                "successful": False,
+                "status_code": 400
+                }), 400
     # Update route plan attributes
     route_plan.merchandiser_id = data.get('merchandiser_id', route_plan.merchandiser_id)
     route_plan.manager_id = data.get('manager_id', route_plan.manager_id)
