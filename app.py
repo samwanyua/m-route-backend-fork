@@ -726,7 +726,7 @@ def login_user():
                 }), 401
     else:
         return jsonify({
-            "message": "User not found",
+            "message": "You do not have an account, please signup.",
             "successful": False,
             "status_code": 404
             }), 404
