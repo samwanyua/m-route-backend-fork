@@ -386,15 +386,15 @@ def route_plan_details():
                 }), 400
         
 
-        user = User.query.filter(staff_no == staff_no).first()
+        user = User.query.filter_by(staff_no=staff_no, role='merchandiser').first()
 
         if not user:
-
             return jsonify({
-                'message': 'Invalid staff number',
+                'message': 'Invalid staff number or user is not a merchandiser',
                 "successful": False,
                 "status_code": 400
-                }), 400
+            }), 400
+
 
         # Create a new route plan object
         new_route_plan = RoutePlan(
