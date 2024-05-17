@@ -1,9 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_jwt, create_access_token
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token, get_jwt, unset_jwt_cookies
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
@@ -36,6 +36,8 @@ bcrypt = Bcrypt(app)
 api = Api(app)
 CORS(app)
 
+blacklist = set()
+
 @app.route('/')
 def index():
     return '<h1>Merchandiser Route App</h1>'
@@ -63,36 +65,40 @@ def log_activity(action, user_id):
             "status_code": 500
         }), 500
 
+@jwt.token_in_blocklist_loader
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    return jti in blacklist
 
 @app.route("/users/logout", methods=["POST"])
 @jwt_required()
 def logout_user():
-
     data = request.get_json()
+    user_id = data.get("user_id")
 
-    if"access_token" not in data:
-        return jsonify({
-            "message": "Invalid request",
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
-    access_token = data.get('access_token')
-
-    blacklist = set()
-
-    jti = get_jwt(access_token)['jti']
+    # Extract JTI from the token
+    jti = get_jwt()["jti"]
     blacklist.add(jti)
 
-    user_id = get_jwt_identity()
+    # Log the logout activity
     log_activity('Logout', user_id)
 
-    return jsonify({
+    log_activity('Logout', user_id)
+
+    # Create a response object
+    response = make_response(jsonify({
         "message": "Logout successful.",
         "successful": True,
-        "status_code": 201
-         
-    }), 201
+        "status_code": 200
+    }))
+
+    # Unset JWT cookies
+    unset_jwt_cookies(response)
+
+    return response, 200
+
+
+
 
 @app.route('/users/signup', methods=['POST'])
 def signup():
@@ -216,7 +222,7 @@ def signup():
         email=email,
         password=hashed_password,
         staff_no = staff_no,
-        role='merchandiser',  # merchandiser or manager or admin
+        role='manager',  # merchandiser or manager or admin
     )
 
     access_token = create_access_token(identity=new_user.id)
