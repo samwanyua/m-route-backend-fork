@@ -3,7 +3,7 @@ from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_raw_jwt, create_access_token
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_jwt, create_access_token
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
@@ -81,7 +81,7 @@ def logout_user():
 
     blacklist = set()
 
-    jti = get_raw_jwt(access_token)['jti']
+    jti = get_jwt(access_token)['jti']
     blacklist.add(jti)
 
     user_id = get_jwt_identity()
@@ -342,13 +342,31 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 400
                 }), 400
-
-        try:
-            json.loads(date_range)
-
-        except json.JSONDecodeError:
+        
+        if not isinstance(date_range, dict):
             return jsonify({
-                'message': 'Date range must be in valid JSON format',
+                'message': 'Date range must be a dictionary',
+                "successful": False,
+                "status_code": 400
+            }), 400
+
+        start_date = date_range.get('start_date')
+        end_date = date_range.get('end_date')
+
+        if not all([start_date, end_date]):
+            return jsonify({
+                'message': 'Missing start_date or end_date in date_range',
+                "successful": False,
+                "status_code": 400
+            }), 400
+        
+        # Validate start_date and end_date format
+        try:
+            datetime.strptime(start_date, '%d/%m/%Y %I:%M%p')
+            datetime.strptime(end_date, '%d/%m/%Y %I:%M%p')
+        except ValueError:
+            return jsonify({
+                'message': 'Invalid start_date or end_date format',
                 "successful": False,
                 "status_code": 400
             }), 400
