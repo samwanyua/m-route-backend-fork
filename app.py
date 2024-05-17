@@ -96,8 +96,6 @@ def logout_user():
     return response, 201
 
 
-
-
 @app.route('/users/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -220,7 +218,7 @@ def signup():
         email=email,
         password=hashed_password,
         staff_no = staff_no,
-        role='manager',  # merchandiser or manager or admin
+        role='merchandiser', 
     )
 
     access_token = create_access_token(identity=new_user.id)
@@ -279,6 +277,38 @@ def users():
         "status_code": 200,
         'message': user_list
         }), 200
+
+
+@app.route("/users/route-plans/<int:merchandiser_id>", methods=["GET"])
+@jwt_required()
+def get_merchandiser_route_plans(merchandiser_id):
+
+    route_plans = RoutePlan.query.filter_by(merchandiser_id=merchandiser_id).all()
+
+    if not route_plans:
+        return jsonify({
+            'message': 'You have not been assigned any routes',
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+    route_plans_list = []
+
+    for route in route_plans:
+        route_plans_list.append({
+            'merchandiser_id': route.merchandiser_id,
+            'manager_id': route.manager_id,
+            'date_range': route.date_range,
+            'instructions': route.instructions,
+            'status': route.status
+        })
+
+    return jsonify({
+        'message': route_plans_list,
+        "successful": True,
+        "status_code": 200
+    }), 200
+
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
@@ -364,16 +394,6 @@ def route_plan_details():
                 "status_code": 400
             }), 400
         
-        # # Validate start_date and end_date format
-        # try:
-        #     datetime.strptime(start_date, '%d/%m/%Y %I:%M%p')
-        #     datetime.strptime(end_date, '%d/%m/%Y %I:%M%p')
-        # except ValueError:
-        #     return jsonify({
-        #         'message': 'Invalid start_date or end_date format',
-        #         "successful": False,
-        #         "status_code": 400
-        #     }), 400
 
         if instructions and not isinstance(instructions, str):
             return jsonify({
