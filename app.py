@@ -360,16 +360,16 @@ def route_plan_details():
                 "status_code": 400
             }), 400
         
-        # Validate start_date and end_date format
-        try:
-            datetime.strptime(start_date, '%d/%m/%Y %I:%M%p')
-            datetime.strptime(end_date, '%d/%m/%Y %I:%M%p')
-        except ValueError:
-            return jsonify({
-                'message': 'Invalid start_date or end_date format',
-                "successful": False,
-                "status_code": 400
-            }), 400
+        # # Validate start_date and end_date format
+        # try:
+        #     datetime.strptime(start_date, '%d/%m/%Y %I:%M%p')
+        #     datetime.strptime(end_date, '%d/%m/%Y %I:%M%p')
+        # except ValueError:
+        #     return jsonify({
+        #         'message': 'Invalid start_date or end_date format',
+        #         "successful": False,
+        #         "status_code": 400
+        #     }), 400
 
         if instructions and not isinstance(instructions, str):
             return jsonify({
