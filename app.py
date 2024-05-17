@@ -1,10 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
 # from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_raw_jwt, create_access_token
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_jwt, create_access_token
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token, get_jwt, unset_jwt_cookies
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
@@ -66,27 +66,40 @@ def log_activity(action, user_id):
             "status_code": 500
         }), 500
 
-
-@app.route("/users/logout", methods=["POST"])
-@jwt_required()
-def logout_user():
-    jwt = get_jwt()
-    jti = jwt["jti"]
-    blacklist.add(jti)
-    
-    user_id = get_jwt_identity()
-    log_activity('Logout', user_id)
-
-    return jsonify({
-        "message": "Logout successful.",
-        "successful": True,
-        "status_code": 201
-    }), 201
-
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blacklist(jwt_header, jwt_payload):
     jti = jwt_payload["jti"]
     return jti in blacklist
+
+@app.route("/users/logout", methods=["POST"])
+@jwt_required()
+def logout_user():
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    # Extract JTI from the token
+    jti = get_jwt()["jti"]
+
+    # Add the JTI to the blacklist
+    blacklist.add(jti)
+
+    # Log the logout activity
+    log_activity('Logout', user_id)
+
+    log_activity('Logout', user_id)
+
+    # Create a response object
+    response = make_response(jsonify({
+        "message": "Logout successful.",
+        "successful": True,
+        "status_code": 200
+    }))
+
+    # Unset JWT cookies
+    unset_jwt_cookies(response)
+
+    return response, 200
+
 
 
 
