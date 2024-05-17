@@ -83,19 +83,17 @@ def logout_user():
     # Log the logout activity
     log_activity('Logout', user_id)
 
-    log_activity('Logout', user_id)
-
     # Create a response object
     response = make_response(jsonify({
         "message": "Logout successful.",
         "successful": True,
-        "status_code": 200
+        "status_code": 201
     }))
 
     # Unset JWT cookies
     unset_jwt_cookies(response)
 
-    return response, 200
+    return response, 201
 
 
 
