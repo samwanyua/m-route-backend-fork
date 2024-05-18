@@ -12,7 +12,6 @@ from sqlalchemy import func, and_
 import smtplib
 from email.mime.text import MIMEText
 import json
-
 import os
 import re
 
@@ -28,10 +27,11 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
-username = os.getenv("SMTP_USERNAME")
-password = os.getenv("SMTP_PASSWORD")
-smpt_port = os.getenv("SMTP_PORT")
-server_address = os.getenv("SMTP_SERVER_ADDRESS")
+app.config['SMTP_SERVER_ADDRESS'] = os.getenv("SMTP_SERVER_ADDRESS")
+app.config['SMTP_USERNAME'] = os.getenv("SMTP_USERNAME")
+app.config['SMTP_PASSWORD'] = os.getenv("SMTP_PASSWORD")
+app.config['SMTP_PORT'] = os.getenv("SMTP_PORT")
+
 
 
 db.init_app(app)
@@ -311,6 +311,55 @@ def get_merchandiser_route_plans(merchandiser_id):
     }), 200
 
 
+def send_email_to_merchandiser(data):
+
+    staff_no = data.get('staff_no')
+    manager_id = data.get('manager_id')
+    date_range = data.get('date_range')
+    instructions = data.get('instructions')
+    status = data.get('status')
+
+    manager = User.query.filter_by(id=manager_id).first()
+    merchandiser = User.query.filter_by(staff_no=staff_no).first()
+    if not manager:
+        return  jsonify({
+                "message": "Invalid manager",
+                "successful": False,
+                "status_code": 400
+                }), 400
+
+    subject = 'Route Plans'
+
+    body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
+
+    body += "Here are the details of the route plans assigned to you:\n\n"
+    body += f"{date_range}\n\n"
+    body += f"{instructions}\n\n"
+    body += f"{status}\n\n"
+
+    
+    body += f"Warm regards,\n"
+    body += f"{manager.first_name} \n"
+    body += f"Sales Manager\n"
+    body += f"Merch Mate Group\n\n"
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-jy7zpl9xj15l5vx6.mlsender.net"
+    msg['To'] = merchandiser.email
+
+    
+    smtp_server = app.config['SMTP_SERVER_ADDRESS']
+    smtp_port = app.config['SMTP_PORT']
+    username = app.config['SMTP_USERNAME']
+    password = app.config['SMTP_PASSWORD']
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, merchandiser.email, msg.as_string())
+
+
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
 def route_plan_details():
@@ -433,7 +482,7 @@ def route_plan_details():
         try:
             db.session.add(new_route_plan)
             db.session.commit()
-            send_email_to_merchandiser(staff_no, manager_id, date_range, instructions, status)
+            send_email_to_merchandiser(data)
             user_id = get_jwt_identity()
             log_activity('Created merchandiser routes', user_id)
             return jsonify({
@@ -449,46 +498,6 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 500
                 }), 500
-
-
-
-def send_email_to_merchandiser(staff_no, manager_id, date_range, instructions, status):
-    manager = User.query.filter_by(id=manager_id).first()
-    merchandiser = User.query.filter_by(staff_no=staff_no).first()
-    if not manager:
-        return  
-
-    subject = 'Route Plans'
-
-    body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
-
-    body += "Here are the details of the route plans assigned to you:\n\n"
-    body += f"{date_range}\n\n"
-    body += f"{instructions}\n\n"
-    body += f"{status}\n\n"
-
-    
-    body += f"Warm regards,\n"
-    body += f"{manager.first_name} \n",
-    body += f"Sales Manager\n"
-    body += f"Merch Mate Group\n\n"
-
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = manager.email
-    msg['To'] = merchandiser.email
-
-    
-    smtp_server = server_address
-    smtp_port = smpt_port
-    username = username
-    password = password
-
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()
-        server.login(username, password)
-        server.sendmail(username, merchandiser.email, msg.as_string())
-
 
 
 @app.route('/users/route-plans/<int:route_plan_id>', methods=['PUT'])
@@ -571,7 +580,7 @@ def update_route_plan(route_plan_id):
             "status_code": 500
             }), 500
 
-    
+
 @app.route('/users/locations', methods=['GET', 'POST'])
 @jwt_required()
 def location_details():
@@ -684,7 +693,7 @@ def location_details():
                 "status_code": 500
                 }), 500
         
-
+        
 @app.route("/users/login", methods=["POST"])
 def login_user():
 
