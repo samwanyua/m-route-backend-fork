@@ -9,8 +9,9 @@ from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy import func, and_
+import smtplib
+from email.mime.text import MIMEText
 import json
-
 import os
 import re
 
@@ -25,6 +26,12 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
+
+app.config['SMTP_SERVER_ADDRESS'] = os.getenv("SMTP_SERVER_ADDRESS")
+app.config['SMTP_USERNAME'] = os.getenv("SMTP_USERNAME")
+app.config['SMTP_PASSWORD'] = os.getenv("SMTP_PASSWORD")
+app.config['SMTP_PORT'] = os.getenv("SMTP_PORT")
+
 
 
 db.init_app(app)
@@ -109,18 +116,27 @@ def signup():
             }), 400
 
     # Extract required fields
-    first_name = data.get('first_name')
-    middle_name = data.get('middle_name')
-    last_name = data.get('last_name')
+    first_name = data.get('first_name').title() if data.get('first_name') else None
+    middle_name = data.get('middle_name').title() if data.get('middle_name') else None
+    last_name = data.get('last_name').title() if data.get('last_name') else None
     national_id_no = data.get('national_id_no')
-    username = data.get('username')
-    email = data.get('email')
+    username = data.get('username').lower() if data.get('username') else None
+    email = data.get('email').lower() if data.get('email') else None
     password = data.get('password')
     staff_no = data.get("staff_no")
 
-    existing_user = User.query.filter(User.staff_no == staff_no).first()
+    try:
+        national_id_no = int(data.get('national_id_no'))
+        staff_no = int(data.get('staff_no'))
+    except (ValueError, TypeError):
+        return jsonify({
+            'message': 'National ID and Staff number must be integers',
+            "successful": False,
+            "status_code": 400
+        }), 400
 
-    if existing_user:
+
+    if User.query.filter(User.staff_no == staff_no).first():
         return jsonify({
             'message': 'Staff number already assigned',
             "successful": False,
@@ -190,21 +206,6 @@ def signup():
             "status_code": 400
             }), 400
 
-    # Check if national ID is an integer
-    if not isinstance(national_id_no, int):
-        return jsonify({
-            'message': 'National ID must be an integer',
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
-    if not isinstance(staff_no, int):
-        return({
-            'message': 'Staff number must be an integer',
-            "successful": False,
-            "status_code": 400
-        }), 400
-
     # Hash the password before saving it
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
@@ -241,8 +242,8 @@ def signup():
             "successful": False,
             "status_code": 500
             }), 500
-    
-    
+
+
 @app.route('/users', methods=['GET'])
 @jwt_required()
 def users():
@@ -300,7 +301,8 @@ def get_merchandiser_route_plans(merchandiser_id):
             'manager_id': route.manager_id,
             'date_range': route.date_range,
             'instructions': route.instructions,
-            'status': route.status
+            'status': route.status,
+            "id": route.id
         })
 
     return jsonify({
@@ -308,6 +310,55 @@ def get_merchandiser_route_plans(merchandiser_id):
         "successful": True,
         "status_code": 200
     }), 200
+
+
+def send_email_to_merchandiser(data):
+
+    staff_no = data.get('staff_no')
+    manager_id = data.get('manager_id')
+    date_range = data.get('date_range')
+    instructions = data.get('instructions')
+    status = data.get('status')
+
+    manager = User.query.filter_by(id=manager_id).first()
+    merchandiser = User.query.filter_by(staff_no=staff_no).first()
+    if not manager:
+        return  jsonify({
+                "message": "Invalid manager",
+                "successful": False,
+                "status_code": 400
+                }), 400
+
+    subject = 'Route Plans'
+
+    body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
+
+    body += "Here are the details of the route plans assigned to you:\n\n"
+    body += f"{date_range}\n\n"
+    body += f"{instructions}\n\n"
+    body += f"{status}\n\n"
+
+    
+    body += f"Warm regards,\n"
+    body += f"{manager.first_name} \n"
+    body += f"Sales Manager\n"
+    body += f"Merch Mate Group\n\n"
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-jy7zpl9xj15l5vx6.mlsender.net"
+    msg['To'] = merchandiser.email
+
+    
+    smtp_server = app.config['SMTP_SERVER_ADDRESS']
+    smtp_port = app.config['SMTP_PORT']
+    username = app.config['SMTP_USERNAME']
+    password = app.config['SMTP_PASSWORD']
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, merchandiser.email, msg.as_string())
 
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
@@ -432,7 +483,7 @@ def route_plan_details():
         try:
             db.session.add(new_route_plan)
             db.session.commit()
-
+            send_email_to_merchandiser(data)
             user_id = get_jwt_identity()
             log_activity('Created merchandiser routes', user_id)
             return jsonify({
@@ -530,7 +581,7 @@ def update_route_plan(route_plan_id):
             "status_code": 500
             }), 500
 
-    
+
 @app.route('/users/locations', methods=['GET', 'POST'])
 @jwt_required()
 def location_details():
@@ -657,7 +708,7 @@ def login_user():
             "status_code": 400
             }), 400
     
-    email = data.get("email")
+    email = data.get("email").lower() if data.get('email') else None
     password = data.get("password")
 
     
@@ -732,10 +783,6 @@ def login_user():
             "status_code": 404
             }), 404
     
-
-
-
-
 
 @app.route("/users/change-password", methods=["PUT"])
 def change_password():
@@ -825,7 +872,6 @@ def change_password():
             "status_code": 404
             }), 404
 
-
 @app.route("/users/edit-profile-image/<int:id>", methods=["PUT"])
 @jwt_required()
 def edit_user_image(id):
@@ -881,7 +927,6 @@ def edit_user_image(id):
 
                         }), 404
 
-    
 
 @app.route("/users/get-logs", methods=["GET"])
 @jwt_required()
