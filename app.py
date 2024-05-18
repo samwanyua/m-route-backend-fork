@@ -1,9 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_restful import Api
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, get_jwt, create_access_token
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token, get_jwt, unset_jwt_cookies
 from models import db
 from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
@@ -36,6 +36,8 @@ bcrypt = Bcrypt(app)
 api = Api(app)
 CORS(app)
 
+blacklist = set()
+
 @app.route('/')
 def index():
     return '<h1>Merchandiser Route App</h1>'
@@ -63,36 +65,36 @@ def log_activity(action, user_id):
             "status_code": 500
         }), 500
 
+@jwt.token_in_blocklist_loader
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    return jti in blacklist
 
 @app.route("/users/logout", methods=["POST"])
 @jwt_required()
 def logout_user():
-
     data = request.get_json()
+    user_id = data.get("user_id")
 
-    if"access_token" not in data:
-        return jsonify({
-            "message": "Invalid request",
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
-    access_token = data.get('access_token')
-
-    blacklist = set()
-
-    jti = get_jwt(access_token)['jti']
+    # Extract JTI from the token
+    jti = get_jwt()["jti"]
     blacklist.add(jti)
 
-    user_id = get_jwt_identity()
+    # Log the logout activity
     log_activity('Logout', user_id)
 
-    return jsonify({
+    # Create a response object
+    response = make_response(jsonify({
         "message": "Logout successful.",
         "successful": True,
         "status_code": 201
-         
-    }), 201
+    }))
+
+    # Unset JWT cookies
+    unset_jwt_cookies(response)
+
+    return response, 201
+
 
 @app.route('/users/signup', methods=['POST'])
 def signup():
@@ -216,7 +218,7 @@ def signup():
         email=email,
         password=hashed_password,
         staff_no = staff_no,
-        role='merchandiser',  # merchandiser or manager or admin
+        role='merchandiser', 
     )
 
     access_token = create_access_token(identity=new_user.id)
@@ -275,6 +277,38 @@ def users():
         "status_code": 200,
         'message': user_list
         }), 200
+
+
+@app.route("/users/route-plans/<int:merchandiser_id>", methods=["GET"])
+@jwt_required()
+def get_merchandiser_route_plans(merchandiser_id):
+
+    route_plans = RoutePlan.query.filter_by(merchandiser_id=merchandiser_id).all()
+
+    if not route_plans:
+        return jsonify({
+            'message': 'You have not been assigned any routes',
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+    route_plans_list = []
+
+    for route in route_plans:
+        route_plans_list.append({
+            'merchandiser_id': route.merchandiser_id,
+            'manager_id': route.manager_id,
+            'date_range': route.date_range,
+            'instructions': route.instructions,
+            'status': route.status
+        })
+
+    return jsonify({
+        'message': route_plans_list,
+        "successful": True,
+        "status_code": 200
+    }), 200
+
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
@@ -360,16 +394,6 @@ def route_plan_details():
                 "status_code": 400
             }), 400
         
-        # # Validate start_date and end_date format
-        # try:
-        #     datetime.strptime(start_date, '%d/%m/%Y %I:%M%p')
-        #     datetime.strptime(end_date, '%d/%m/%Y %I:%M%p')
-        # except ValueError:
-        #     return jsonify({
-        #         'message': 'Invalid start_date or end_date format',
-        #         "successful": False,
-        #         "status_code": 400
-        #     }), 400
 
         if instructions and not isinstance(instructions, str):
             return jsonify({
@@ -702,7 +726,7 @@ def login_user():
                 }), 401
     else:
         return jsonify({
-            "message": "User not found",
+            "message": "You do not have an account, please signup.",
             "successful": False,
             "status_code": 404
             }), 404
