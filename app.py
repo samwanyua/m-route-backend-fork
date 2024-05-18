@@ -118,9 +118,18 @@ def signup():
     password = data.get('password')
     staff_no = data.get("staff_no")
 
-    existing_user = User.query.filter(User.staff_no == staff_no).first()
+    try:
+        national_id_no = int(data.get('national_id_no'))
+        staff_no = int(data.get('staff_no'))
+    except (ValueError, TypeError):
+        return jsonify({
+            'message': 'National ID and Staff number must be integers',
+            "successful": False,
+            "status_code": 400
+        }), 400
 
-    if existing_user:
+
+    if User.query.filter(User.staff_no == staff_no).first():
         return jsonify({
             'message': 'Staff number already assigned',
             "successful": False,
@@ -190,21 +199,6 @@ def signup():
             "status_code": 400
             }), 400
 
-    # Check if national ID is an integer
-    if not isinstance(national_id_no, int):
-        return jsonify({
-            'message': 'National ID must be an integer',
-            "successful": False,
-            "status_code": 400
-            }), 400
-    
-    if not isinstance(staff_no, int):
-        return({
-            'message': 'Staff number must be an integer',
-            "successful": False,
-            "status_code": 400
-        }), 400
-
     # Hash the password before saving it
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
@@ -243,6 +237,8 @@ def signup():
             }), 500
     
     
+
+
 @app.route('/users', methods=['GET'])
 @jwt_required()
 def users():
