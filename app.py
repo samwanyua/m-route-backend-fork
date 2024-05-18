@@ -235,8 +235,6 @@ def signup():
             "successful": False,
             "status_code": 500
             }), 500
-    
-    
 
 
 @app.route('/users', methods=['GET'])
@@ -728,10 +726,6 @@ def login_user():
             }), 404
     
 
-
-
-
-
 @app.route("/users/change-password", methods=["PUT"])
 def change_password():
     
@@ -820,7 +814,6 @@ def change_password():
             "status_code": 404
             }), 404
 
-
 @app.route("/users/edit-profile-image/<int:id>", methods=["PUT"])
 @jwt_required()
 def edit_user_image(id):
@@ -876,7 +869,6 @@ def edit_user_image(id):
 
                         }), 404
 
-    
 
 @app.route("/users/get-logs", methods=["GET"])
 @jwt_required()
