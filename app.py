@@ -509,6 +509,7 @@ def update_route_plan(route_plan_id):
     route_plan.manager_id = data.get('manager_id', route_plan.manager_id)
     route_plan.instructions = data.get('instructions', route_plan.instructions)
     route_plan.status = data.get('status', route_plan.status)
+    route_plan.date_range= data.get('date_range', route_plan.date_range)
 
     try:
         db.session.commit()
