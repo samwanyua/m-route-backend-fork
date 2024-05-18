@@ -1493,7 +1493,54 @@ def create_reviews():
             "successful": False
         }), 500
     
+@app.route("/users/<int:user_id>/update", methods=["PUT"])
+def update_user(user_id):
+    data = request.get_json()
 
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Extract fields from the request
+    new_password = data.get("new_password")
+
+    if not new_password:
+        return jsonify({
+            "message": "New password is required",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Check if the user exists
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    # Update the password
+    hashed_new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+    user.password = hashed_new_password
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Password updated successfully",
+            "successful": True,
+            "status_code": 200
+        }), 200
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+            "message": f"Failed to update password. Error: {err}",
+            "successful": False,
+            "status_code": 500
+        }), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
