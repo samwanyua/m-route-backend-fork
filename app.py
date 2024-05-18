@@ -301,7 +301,8 @@ def get_merchandiser_route_plans(merchandiser_id):
             'manager_id': route.manager_id,
             'date_range': route.date_range,
             'instructions': route.instructions,
-            'status': route.status
+            'status': route.status,
+            "id": route.id
         })
 
     return jsonify({
@@ -693,7 +694,7 @@ def location_details():
                 "status_code": 500
                 }), 500
         
-        
+
 @app.route("/users/login", methods=["POST"])
 def login_user():
 
