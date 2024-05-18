@@ -280,6 +280,38 @@ def users():
         'message': user_list
         }), 200
 
+@app.route('/users/<user_id>', methods=['GET'])
+@jwt_required()
+def get_user(user_id):
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    user_info = {
+        'id': user.id,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'username': user.username,
+        'email': user.email,
+        'role': user.role,
+        'status': user.status,
+        "staff_no": user.staff_no,
+        "avatar": user.avatar,
+    }
+
+    user_id = get_jwt_identity()
+    log_activity(f'Viewed details of user {user_id}', user_id)
+
+    return jsonify({
+        "successful": True,
+        "status_code": 200,
+        'message': user_info
+    }), 200
 
 @app.route("/users/route-plans/<int:merchandiser_id>", methods=["GET"])
 @jwt_required()
