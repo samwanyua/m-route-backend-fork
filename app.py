@@ -267,6 +267,7 @@ def users():
             'role': user.role,
             'status': user.status, 
             "staff_no": user.staff_no,
+            "avatar": user.avatar,
         }
         user_list.append(user_info)
 
