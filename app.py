@@ -9,6 +9,8 @@ from datetime import datetime, timezone, timedelta
 from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy import func, and_
+import smtplib
+from email.mime.text import MIMEText
 import json
 
 import os
@@ -25,6 +27,11 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
+
+username = os.getenv("SMTP_USERNAME")
+password = os.getenv("SMTP_PASSWORD")
+smpt_port = os.getenv("SMTP_PORT")
+server_address = os.getenv("SMTP_SERVER_ADDRESS")
 
 
 db.init_app(app)
@@ -109,12 +116,12 @@ def signup():
             }), 400
 
     # Extract required fields
-    first_name = data.get('first_name')
-    middle_name = data.get('middle_name')
-    last_name = data.get('last_name')
+    first_name = data.get('first_name').title() if data.get('first_name') else None
+    middle_name = data.get('middle_name').title() if data.get('middle_name') else None
+    last_name = data.get('last_name').title() if data.get('last_name') else None
     national_id_no = data.get('national_id_no')
-    username = data.get('username')
-    email = data.get('email')
+    username = data.get('username').lower() if data.get('username') else None
+    email = data.get('email').lower() if data.get('email') else None
     password = data.get('password')
     staff_no = data.get("staff_no")
 
@@ -426,7 +433,7 @@ def route_plan_details():
         try:
             db.session.add(new_route_plan)
             db.session.commit()
-
+            send_email_to_merchandiser(staff_no, manager_id, date_range, instructions, status)
             user_id = get_jwt_identity()
             log_activity('Created merchandiser routes', user_id)
             return jsonify({
@@ -442,6 +449,45 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 500
                 }), 500
+
+
+def send_email_to_merchandiser(staff_no, manager_id, date_range, instructions, status):
+    manager = User.query.filter_by(id=manager_id).first()
+    merchandiser = User.query.filter_by(staff_no=staff_no).first()
+    if not manager:
+        return  
+
+    subject = 'Route Plans'
+
+    body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
+
+    body += "Here are the details of the route plans assigned to you:\n\n"
+    body += f"{date_range}\n\n"
+    body += f"{instructions}\n\n"
+    body += f"{status}\n\n"
+
+    
+    body += f"Warm regards,\n"
+    body += f"{manager.first_name} \n",
+    body += f"Sales Manager\n"
+    body += f"Merch Mate Group\n\n"
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = manager.email
+    msg['To'] = merchandiser.email
+
+    
+    smtp_server = server_address
+    smtp_port = smpt_port
+    username = username
+    password = password
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, merchandiser.email, msg.as_string())
+
 
 @app.route('/users/route-plans/<int:route_plan_id>', methods=['PUT'])
 @jwt_required()
@@ -650,7 +696,7 @@ def login_user():
             "status_code": 400
             }), 400
     
-    email = data.get("email")
+    email = data.get("email").lower() if data.get('email') else None
     password = data.get("password")
 
     
