@@ -399,7 +399,7 @@ def send_email_to_merchandiser(data):
     date_range = data.get('date_range')
     instructions = data.get('instructions')
     status = data.get('status')
-    instructions_json = json.dumps(instructions)
+    # instructions_json = json.dumps(instructions)
 
     manager = User.query.filter_by(id=manager_id).first()
     merchandiser = User.query.filter_by(staff_no=staff_no).first()
@@ -419,6 +419,8 @@ def send_email_to_merchandiser(data):
     body += f"{instructions}\n\n"
     # for instruction in json.loads(instructions_json):
     #     body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
+    for instruction in instructions:
+        body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
 
 
     body += f"{status}\n\n"
