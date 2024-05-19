@@ -452,12 +452,12 @@ def route_plan_details():
             }), 400
         
 
-        if instructions and not isinstance(instructions, dict):
-            return jsonify({
-                'message': 'Instructions must be a string',
-                "successful": False,
-                "status_code": 400
-                }), 400
+        # if instructions and not isinstance(instructions, dict):
+        #     return jsonify({
+        #         'message': 'Instructions must be a string',
+        #         "successful": False,
+        #         "status_code": 400
+        #         }), 400
 
         if status not in ['complete', 'pending']:
             return jsonify({
