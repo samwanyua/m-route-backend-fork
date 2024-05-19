@@ -414,13 +414,14 @@ def send_email_to_merchandiser(data):
 
     body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
 
-    body += "Here are the details of the route plans assigned to you:\n\n"
-    body += f"{date_range['start_date']} to {date_range['end_date']}\n\n"
-    for instruction in instructions:
-        body += f"{instruction['start']} {instruction['end']} {instruction['facility']} {instruction['instructions']}\n\n"
+    body += "Please find below the details of the route plans assigned to you:\n\n"
+    body += f"Start{date_range['start_date']} to {date_range['end_date']}\n\n"
 
+    for instruction in instructions:
+        body += f"Start: {instruction['start']} End: {instruction['end']} {instruction['facility']} {instruction['instructions']}\n\n"
 
     body += f"{status}\n\n"
+    body += "Kindly make sure to send a report of your daily activities. The report should address instructions."
 
     
     body += f"Warm regards,\n"
@@ -549,9 +550,6 @@ def mark_route_as_complete(id):
                 "status_code": 500
                 }), 500
     
-
-
-
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
