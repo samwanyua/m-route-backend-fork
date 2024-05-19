@@ -267,6 +267,7 @@ def users():
             'role': user.role,
             'status': user.status, 
             "staff_no": user.staff_no,
+            "avatar": user.avatar,
         }
         user_list.append(user_info)
 
@@ -278,6 +279,85 @@ def users():
         "status_code": 200,
         'message': user_list
         }), 200
+
+@app.route('/users/<user_id>', methods=['GET'])
+@jwt_required()
+def get_user(user_id):
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    user_info = {
+        'id': user.id,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'username': user.username,
+        'email': user.email,
+        'role': user.role,
+        'status': user.status,
+        "staff_no": user.staff_no,
+        "avatar": user.avatar,
+    }
+
+    user_id = get_jwt_identity()
+    log_activity(f'Viewed details of user {user_id}', user_id)
+
+    return jsonify({
+        "successful": True,
+        "status_code": 200,
+        'message': user_info
+    }), 200
+
+from flask import jsonify
+
+@app.route("/users/manager-route-plans/<int:manager_id>", methods=["GET"])
+@jwt_required()
+def get_manager_route_plans(manager_id):
+    # Filter route plans based on manager_id
+    route_plans = RoutePlan.query.filter_by(manager_id=manager_id).all()
+
+    if not route_plans:
+        return jsonify({
+            'message': 'No route plans found for this manager',
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+    route_plans_list = []
+
+    for route in route_plans:
+        # Fetch associated user details using staff_no
+        merchandiser = User.query.filter_by(staff_no=route.staff_no).first()
+        if merchandiser:
+            # Append route plan details along with merchandiser details to the list
+            route_plans_list.append({
+                'merchandiser_id': route.merchandiser_id,
+                'manager_id': route.manager_id,
+                'date_range': route.date_range,
+                'instructions': route.instructions,
+                'status': route.status,
+                "id": route.id,
+                # Include merchandiser details
+                'merchandiser_details': {
+                    'id': merchandiser.id,
+                    'first_name': merchandiser.first_name,
+                    'last_name': merchandiser.last_name,
+                    'email': merchandiser.email,
+                    'avatar': merchandiser.avatar
+                    # Add more details as needed
+                }
+            })
+
+    return jsonify({
+        'message': route_plans_list,
+        "successful": True,
+        "status_code": 200
+    }), 200
 
 
 @app.route("/users/route-plans/<int:merchandiser_id>", methods=["GET"])
@@ -319,7 +399,7 @@ def send_email_to_merchandiser(data):
     date_range = data.get('date_range')
     instructions = data.get('instructions')
     status = data.get('status')
-    instructions_json = json.dumps(instructions)
+    # instructions_json = json.dumps(instructions)
 
     manager = User.query.filter_by(id=manager_id).first()
     merchandiser = User.query.filter_by(staff_no=staff_no).first()
@@ -336,9 +416,12 @@ def send_email_to_merchandiser(data):
 
     body += "Here are the details of the route plans assigned to you:\n\n"
     body += f"{date_range['start_date']} to {date_range['end_date']}\n\n"
-    # body += f"{instructions.dateTime} {instructions.facility} {instructions.instructions}\n\n"
-    for instruction in instructions_json:
-        body += f"{instructions_json['dateTime']} {instructions_json['facility']} {instructions_json['instructions']}\n\n"
+    # body += f"{instructions}\n\n"
+    # for instruction in json.loads(instructions_json):
+    #     body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
+    for instruction in instructions:
+        body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
+
 
     body += f"{status}\n\n"
 
@@ -1500,7 +1583,54 @@ def create_reviews():
             "successful": False
         }), 500
     
+@app.route("/users/<int:user_id>/update", methods=["PUT"])
+def update_user(user_id):
+    data = request.get_json()
 
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Extract fields from the request
+    new_password = data.get("new_password")
+
+    if not new_password:
+        return jsonify({
+            "message": "New password is required",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Check if the user exists
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    # Update the password
+    hashed_new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+    user.password = hashed_new_password
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Password updated successfully",
+            "successful": True,
+            "status_code": 200
+        }), 200
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+            "message": f"Failed to update password. Error: {err}",
+            "successful": False,
+            "status_code": 500
+        }), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
