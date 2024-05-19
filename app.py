@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from sqlalchemy import func, and_
 import smtplib
 from email.mime.text import MIMEText
+from sqlalchemy.orm.exc import NoResultFound
 import json
 import os
 import re
@@ -1049,7 +1050,7 @@ def login_user():
     
         if bcrypt.check_password_hash(user.password, password):
 
-            if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(days=14):
+            if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(seconds=10):
                 
                 return jsonify({
                     "message": "Your password has expired",
@@ -1506,6 +1507,8 @@ def edit_outlet_details(id):
             }), 500
 
 
+
+
 @app.route("/users/<int:user_id>/notifications", methods=["GET", "POST"])
 @jwt_required()
 def manage_notifications(user_id):
@@ -1565,6 +1568,7 @@ def manage_notifications(user_id):
             }), 400
 
         content = data.get("content")
+        recipient_email = data.get("recipient_email")
 
         if not content:
             return jsonify({
@@ -1573,14 +1577,24 @@ def manage_notifications(user_id):
                 "status_code": 400
             }), 400
 
-        new_notification = Notification(
-            recipient_id=user_id,
-            content=content,
-            timestamp=datetime.now(timezone.utc),
-            status="unread"
-        )
+        if not recipient_email:
+            return jsonify({
+                "message": "Recipient email is required",
+                "successful": False,
+                "status_code": 400
+            }), 400
 
         try:
+            user = User.query.filter_by(email=recipient_email).one()
+            recipient_id = user.id
+
+            new_notification = Notification(
+                recipient_id=recipient_id,
+                content=content,
+                timestamp=datetime.now(timezone.utc),
+                status="unread"
+            )
+
             db.session.add(new_notification)
             db.session.commit()
 
@@ -1592,6 +1606,13 @@ def manage_notifications(user_id):
                 "status_code": 201
             }), 201
 
+        except NoResultFound:
+            return jsonify({
+                "message": f"User with email {recipient_email} not found",
+                "successful": False,
+                "status_code": 404
+            }), 404
+
         except Exception as err:
             db.session.rollback()
             return jsonify({
@@ -1599,6 +1620,7 @@ def manage_notifications(user_id):
                 "successful": False,
                 "status_code": 500
             }), 500
+
 
 @app.route("/users/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
