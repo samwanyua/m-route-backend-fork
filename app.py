@@ -518,6 +518,39 @@ def delete_route_plans(id):
                 }), 500
     
 
+@app.route("/users/modify-route/<int:id>", methods=["PUT"])
+@jwt_required()
+def mark_route_as_complete(id):
+
+    route = RoutePlan.query.filter_by(id=id).first()
+
+    if not route:
+        return jsonify({
+                'message': 'Route plan does not exist',
+                "successful": False,
+                "status_code": 404
+                }), 404
+    
+    route.status = "Complete"
+
+    try:
+        db.session.commit()
+        return jsonify({
+                'message': 'Route plan marked as complete',
+                "successful": True,
+                "status_code": 201
+                }), 201
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+                'message': f'Error, {err}',
+                "successful": False,
+                "status_code": 500
+                }), 500
+    
+
+
 
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
