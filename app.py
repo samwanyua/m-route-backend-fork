@@ -416,9 +416,6 @@ def send_email_to_merchandiser(data):
 
     body += "Here are the details of the route plans assigned to you:\n\n"
     body += f"{date_range['start_date']} to {date_range['end_date']}\n\n"
-    # body += f"{instructions}\n\n"
-    # for instruction in json.loads(instructions_json):
-    #     body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
     for instruction in instructions:
         body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
 
@@ -448,6 +445,82 @@ def send_email_to_merchandiser(data):
         server.sendmail(username, merchandiser.email, msg.as_string())
 
 
+@app.route("/users/manager-routes/<int:id>", methods=["GET"])
+@jwt_required()
+def get_manager_routes(id):
+
+    routes = RoutePlan.query.filter_by(manager_id=id).all()
+
+    if not routes:
+        return jsonify({
+                'message': 'You have no route plans found',
+                "successful": False,
+                "status_code": 404
+                }), 404
+    
+    routes_list = []
+
+    for route in routes:
+        merchandiser = User.query.filter_by(id=route.merchandiser_id).first()
+        
+        if merchandiser:
+            merchandiser_name = f"{merchandiser.first_name} {merchandiser.last_name}"
+            staff_no = merchandiser.staff_no
+
+        else:
+            merchandiser_name = None
+            staff_no = None
+        
+        routes_list.append({
+            "id": route.id,
+            "instructions": route.instructions,
+            "manager_id": route.manager_id,
+            "date_range": route.date_range,
+            "merchandiser_name": merchandiser_name,
+            "staff_no": staff_no,
+            "status": route.status
+        })
+
+    return jsonify({
+        "message": "Route plans found",
+        "successful": True,
+        "status_code": 200,
+        "routes": routes_list
+    }), 200
+
+
+@app.route("/users/delete-route-plans/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_route_plans(id):
+    route = RoutePlan.query.filter_by(id=id).first()
+
+    if not route:
+        return jsonify({
+                'message': 'No route plans found',
+                "successful": False,
+                "status_code": 404
+                }), 404
+    
+    try:
+        db.session.delete(route)
+        db.session.commit()
+        return jsonify({
+                'message': 'Route deleted successfully',
+                "successful": True,
+                "status_code": 204
+                }), 204
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+                'message': f'There was an error deleting the route {err}',
+                "successful": False,
+                "status_code": 500
+                }), 500
+    
+
+
+
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
 def route_plan_details():
@@ -469,7 +542,6 @@ def route_plan_details():
                 'manager_id': route_plan.manager_id,
                 'date_range': route_plan.date_range,
                 'instructions': route_plan.instructions,
-                # "instructions_dict" = json.loads(route_plan.instructions),
                 'status': route_plan.status
             }
             route_plan_list.append(route_plan_info)
@@ -534,14 +606,6 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 400
             }), 400
-        
-
-        # if instructions and not isinstance(instructions, dict):
-        #     return jsonify({
-        #         'message': 'Instructions must be a string',
-        #         "successful": False,
-        #         "status_code": 400
-        #         }), 400
 
         if status not in ['complete', 'pending']:
             return jsonify({
