@@ -332,21 +332,20 @@ def send_email_to_merchandiser(data):
 
     subject = 'Route Plans'
 
-    body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
+    body = f"\nGreetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
 
     body += "Please find below the details of the route plans assigned to you:\n\n"
-    body += f"Start{date_range['start_date']} to {date_range['end_date']}\n\n"
+    body += f"Date range from: {date_range['start_date']} to {date_range['end_date']}\n\n"
 
     for instruction in instructions:
-        body += f"Start: {instruction['start']} End: {instruction['end']} {instruction['facility']} {instruction['instructions']}\n\n"
+        body += f"Start date: {instruction['start']} - End Date: {instruction['end']} -  {instruction['facility']} - {instruction['instructions']}\n\n"
 
-    body += f"{status}\n\n"
-    body += "Kindly make sure to send a report of your daily activities. The report should address instructions."
+    body += f"Status: {status}\n\n"
+    body += "Kindly make sure to send a report of your daily activities. The report should address instructions.\n\n"
 
-    
-    body += f"Warm regards,\n"
-    body += f"{manager.first_name} \n"
-    body += f"Sales Manager\n"
+    body += f"Warm regards,\n\n"
+    body += f"{manager.first_name}, \n"
+    body += f"Sales Manager,\n"
     body += f"Merch Mate Group\n\n"
 
     msg = MIMEText(body)
