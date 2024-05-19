@@ -360,7 +360,7 @@ def get_manager_route_plans(manager_id):
     }), 200
 
 
-@app.route("/users/notifications", methods=["POST"])
+@app.route("/users/send-notifications", methods=["POST"])
 @jwt_required()
 def send_notification():
 
