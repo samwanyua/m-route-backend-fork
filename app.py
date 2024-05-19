@@ -402,6 +402,7 @@ def send_email_to_merchandiser(data):
 
     manager = User.query.filter_by(id=manager_id).first()
     merchandiser = User.query.filter_by(staff_no=staff_no).first()
+
     if not manager:
         return  jsonify({
                 "message": "Invalid manager",
@@ -411,17 +412,20 @@ def send_email_to_merchandiser(data):
 
     subject = 'Route Plans'
 
-    body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
+    body = f"\nGreetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
 
-    body += "Here are the details of the route plans assigned to you:\n\n"
-    body += f"{date_range}\n\n"
-    body += f"{instructions}\n\n"
-    body += f"{status}\n\n"
+    body += "Please find below the details of the route plans assigned to you:\n\n"
+    body += f"Date range from: {date_range['start_date']} to {date_range['end_date']}\n\n"
 
-    
-    body += f"Warm regards,\n"
-    body += f"{manager.first_name} \n"
-    body += f"Sales Manager\n"
+    for instruction in instructions:
+        body += f"Start date: {instruction['start']} - End Date: {instruction['end']} -  {instruction['facility']} - {instruction['instructions']}\n\n"
+
+    body += f"Status: {status}\n\n"
+    body += "Kindly make sure to send a report of your daily activities. The report should address instructions.\n\n"
+
+    body += f"Warm regards,\n\n"
+    body += f"{manager.first_name}, \n"
+    body += f"Sales Manager,\n"
     body += f"Merch Mate Group\n\n"
 
     msg = MIMEText(body)
@@ -440,6 +444,111 @@ def send_email_to_merchandiser(data):
         server.login(username, password)
         server.sendmail(username, merchandiser.email, msg.as_string())
 
+
+@app.route("/users/manager-routes/<int:id>", methods=["GET"])
+@jwt_required()
+def get_manager_routes(id):
+
+    routes = RoutePlan.query.filter_by(manager_id=id).all()
+
+    if not routes:
+        return jsonify({
+                'message': 'You have no route plans found',
+                "successful": False,
+                "status_code": 404
+                }), 404
+    
+    routes_list = []
+
+    for route in routes:
+        merchandiser = User.query.filter_by(id=route.merchandiser_id).first()
+        
+        if merchandiser:
+            merchandiser_name = f"{merchandiser.first_name} {merchandiser.last_name}"
+            staff_no = merchandiser.staff_no
+
+        else:
+            merchandiser_name = None
+            staff_no = None
+        
+        routes_list.append({
+            "id": route.id,
+            "instructions": route.instructions,
+            "manager_id": route.manager_id,
+            "date_range": route.date_range,
+            "merchandiser_name": merchandiser_name,
+            "staff_no": staff_no,
+            "status": route.status
+        })
+
+    return jsonify({
+        "successful": True,
+        "status_code": 200,
+        "message": routes_list
+    }), 200
+
+
+@app.route("/users/delete-route-plans/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_route_plans(id):
+    route = RoutePlan.query.filter_by(id=id).first()
+
+    if not route:
+        return jsonify({
+                'message': 'No route plans found',
+                "successful": False,
+                "status_code": 404
+                }), 404
+    
+    try:
+        db.session.delete(route)
+        db.session.commit()
+        return jsonify({
+                'message': 'Route deleted successfully',
+                "successful": True,
+                "status_code": 204
+                }), 204
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+                'message': f'There was an error deleting the route {err}',
+                "successful": False,
+                "status_code": 500
+                }), 500
+    
+
+@app.route("/users/modify-route/<int:id>", methods=["PUT"])
+@jwt_required()
+def mark_route_as_complete(id):
+
+    route = RoutePlan.query.filter_by(id=id).first()
+
+    if not route:
+        return jsonify({
+                'message': 'Route plan does not exist',
+                "successful": False,
+                "status_code": 404
+                }), 404
+    
+    route.status = "Complete"
+
+    try:
+        db.session.commit()
+        return jsonify({
+                'message': 'Route plan marked as complete',
+                "successful": True,
+                "status_code": 201
+                }), 201
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+                'message': f'Error, {err}',
+                "successful": False,
+                "status_code": 500
+                }), 500
+    
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
@@ -492,6 +601,8 @@ def route_plan_details():
         status = data.get('status')
         staff_no = data.get("staff_no")
 
+        instructions_json = json.dumps(instructions)
+
         # Check for required fields
         if not all([staff_no, manager_id, date_range, status]):
             return jsonify({
@@ -524,14 +635,6 @@ def route_plan_details():
                 "successful": False,
                 "status_code": 400
             }), 400
-        
-
-        if instructions and not isinstance(instructions, str):
-            return jsonify({
-                'message': 'Instructions must be a string',
-                "successful": False,
-                "status_code": 400
-                }), 400
 
         if status not in ['complete', 'pending']:
             return jsonify({
@@ -556,7 +659,7 @@ def route_plan_details():
             merchandiser_id=user.id,
             manager_id=manager_id,
             date_range=date_range,
-            instructions=instructions,
+            instructions=instructions_json,
             status=status
         )
 
