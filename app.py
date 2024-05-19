@@ -482,10 +482,9 @@ def get_manager_routes(id):
         })
 
     return jsonify({
-        "message": "Route plans found",
         "successful": True,
         "status_code": 200,
-        "routes": routes_list
+        "message": routes_list
     }), 200
 
 
