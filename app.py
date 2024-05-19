@@ -414,8 +414,11 @@ def send_email_to_merchandiser(data):
     body = f"Greetings {merchandiser.first_name} {merchandiser.last_name}, I trust this mail finds you well.\n\n"
 
     body += "Here are the details of the route plans assigned to you:\n\n"
-    body += f"{date_range}\n\n"
-    body += f"{instructions}\n\n"
+    body += f"{date_range['start_date']} to {date_range['end_date']}\n\n"
+    # body += f"{instructions.dateTime} {instructions.facility} {instructions.instructions}\n\n"
+    for instruction in instructions:
+        body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
+
     body += f"{status}\n\n"
 
     
@@ -462,6 +465,7 @@ def route_plan_details():
                 'manager_id': route_plan.manager_id,
                 'date_range': route_plan.date_range,
                 'instructions': route_plan.instructions,
+                # "instructions_dict" = json.loads(route_plan.instructions),
                 'status': route_plan.status
             }
             route_plan_list.append(route_plan_info)
@@ -491,6 +495,8 @@ def route_plan_details():
         instructions = data.get('instructions')
         status = data.get('status')
         staff_no = data.get("staff_no")
+
+        instructions_json = json.dumps(instructions)
 
         # Check for required fields
         if not all([staff_no, manager_id, date_range, status]):
@@ -526,7 +532,7 @@ def route_plan_details():
             }), 400
         
 
-        if instructions and not isinstance(instructions, str):
+        if instructions and not isinstance(instructions, dict):
             return jsonify({
                 'message': 'Instructions must be a string',
                 "successful": False,
@@ -556,7 +562,7 @@ def route_plan_details():
             merchandiser_id=user.id,
             manager_id=manager_id,
             date_range=date_range,
-            instructions=instructions,
+            instructions=instructions_json,
             status=status
         )
 
