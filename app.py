@@ -336,9 +336,9 @@ def send_email_to_merchandiser(data):
 
     body += "Here are the details of the route plans assigned to you:\n\n"
     body += f"{date_range['start_date']} to {date_range['end_date']}\n\n"
-    # body += f"{instructions.dateTime} {instructions.facility} {instructions.instructions}\n\n"
-    for instruction in json.loads(instructions_json):
-        body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
+    body += f"{instructions}\n\n"
+    # for instruction in json.loads(instructions_json):
+    #     body += f"{instruction['dateTime']} {instruction['facility']} {instruction['instructions']}\n\n"
 
 
     body += f"{status}\n\n"
