@@ -1506,13 +1506,20 @@ def edit_outlet_details(id):
             }), 500
 
 
-@app.route("/users/notifications", methods=["GET", "POST"])
+@app.route("/users/<int:user_id>/notifications", methods=["GET", "POST"])
 @jwt_required()
-def manage_notifications():
+def manage_notifications(user_id):
+    # Ensure that the user_id from the URL matches the one in the JWT token
+    jwt_user_id = get_jwt_identity()
+    if user_id != jwt_user_id:
+        return jsonify({
+            "message": "Unauthorized access",
+            "successful": False,
+            "status_code": 401
+        }), 401
 
     if request.method == "GET":
         try:
-            user_id = get_jwt_identity()
             notifications = Notification.query.filter_by(recipient_id=user_id).all()
 
             if not notifications:
@@ -1520,7 +1527,7 @@ def manage_notifications():
                     "message": "No notifications found",
                     "successful": False,
                     "status_code": 404
-                    }), 404
+                }), 404
 
             notification_list = []
             for notification in notifications:
@@ -1538,14 +1545,14 @@ def manage_notifications():
                 "message": notification_list,
                 "successful": True,
                 "status_code": 200
-                }), 200
+            }), 200
 
         except Exception as err:
             return jsonify({
                 "message": str(err),
                 "successful": False,
                 "status_code": 500
-                }), 500
+            }), 500
 
     elif request.method == "POST":
         data = request.get_json()
@@ -1555,37 +1562,19 @@ def manage_notifications():
                 "message": "Invalid data",
                 "successful": False,
                 "status_code": 400
-                            }), 400
+            }), 400
 
-        recipient_id = data.get("recipient_id")
         content = data.get("content")
 
-        if not all([recipient_id, content]):
-
+        if not content:
             return jsonify({
-                "message": "Missing required fields",
+                "message": "Content is required",
                 "successful": False,
                 "status_code": 400
-                }), 400
-        
-        # Check data types and formats
-        if not isinstance(recipient_id, int):
-            return jsonify({
-                "message": "Recipient ID must be an integer",
-                "successful": False,
-                "status_code": 400
-                }), 400
-
-        if not isinstance(content, str):
-            return jsonify({
-                "message": "Content must be a string",
-                "successful": False,
-                "status_code": 400
-                }), 400
-
+            }), 400
 
         new_notification = Notification(
-            recipient_id=recipient_id,
+            recipient_id=user_id,
             content=content,
             timestamp=datetime.now(timezone.utc),
             status="unread"
@@ -1595,14 +1584,13 @@ def manage_notifications():
             db.session.add(new_notification)
             db.session.commit()
 
-            user_id = get_jwt_identity()
             log_activity(f'Created notification: {content}', user_id)
 
             return jsonify({
                 "message": "Notification created successfully",
                 "successful": True,
                 "status_code": 201
-                }), 201
+            }), 201
 
         except Exception as err:
             db.session.rollback()
@@ -1610,7 +1598,7 @@ def manage_notifications():
                 "message": str(err),
                 "successful": False,
                 "status_code": 500
-                }), 500
+            }), 500
 
 @app.route("/users/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
