@@ -41,6 +41,8 @@ class RoutePlan(db.Model):
     manager = db.relationship('User', foreign_keys=[manager_id], backref=db.backref('assigned_route_plans', lazy=True))
 
 
+
+
 class Location(db.Model):
 
     __tablename__ = "locations"
