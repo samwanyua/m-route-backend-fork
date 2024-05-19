@@ -280,7 +280,7 @@ def users():
         }), 200
 
 
-@app.route("/users/notifications", methods=["POST"])
+@app.route("/users/send-notifications", methods=["POST"])
 @jwt_required()
 def send_notification():
 
