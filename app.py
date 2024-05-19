@@ -313,6 +313,53 @@ def get_user(user_id):
         'message': user_info
     }), 200
 
+from flask import jsonify
+
+@app.route("/users/manager-route-plans/<int:manager_id>", methods=["GET"])
+@jwt_required()
+def get_manager_route_plans(manager_id):
+    # Filter route plans based on manager_id
+    route_plans = RoutePlan.query.filter_by(manager_id=manager_id).all()
+
+    if not route_plans:
+        return jsonify({
+            'message': 'No route plans found for this manager',
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+    route_plans_list = []
+
+    for route in route_plans:
+        # Fetch associated user details using staff_no
+        merchandiser = User.query.filter_by(staff_no=route.staff_no).first()
+        if merchandiser:
+            # Append route plan details along with merchandiser details to the list
+            route_plans_list.append({
+                'merchandiser_id': route.merchandiser_id,
+                'manager_id': route.manager_id,
+                'date_range': route.date_range,
+                'instructions': route.instructions,
+                'status': route.status,
+                "id": route.id,
+                # Include merchandiser details
+                'merchandiser_details': {
+                    'id': merchandiser.id,
+                    'first_name': merchandiser.first_name,
+                    'last_name': merchandiser.last_name,
+                    'email': merchandiser.email,
+                    'avatar': merchandiser.avatar
+                    # Add more details as needed
+                }
+            })
+
+    return jsonify({
+        'message': route_plans_list,
+        "successful": True,
+        "status_code": 200
+    }), 200
+
+
 @app.route("/users/route-plans/<int:merchandiser_id>", methods=["GET"])
 @jwt_required()
 def get_merchandiser_route_plans(merchandiser_id):
