@@ -921,7 +921,7 @@ def login_user():
     
         if bcrypt.check_password_hash(user.password, password):
 
-            if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(seconds=10):
+            if datetime.now(timezone.utc) - user.last_password_change.replace(tzinfo=timezone.utc) > timedelta(days=14):
                 
                 return jsonify({
                     "message": "Your password has expired",
