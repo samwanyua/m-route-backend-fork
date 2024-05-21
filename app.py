@@ -1185,8 +1185,9 @@ def change_password():
             "status_code": 404
             }), 404
 
-@app.route("/users/edit-status", methods=["PUT"])
-def edit_status():
+@app.route("/users/<int:user_id>/edit-status", methods=["PUT"])
+@jwt_required()
+def edit_status(user_id):
     data = request.get_json()
 
     if not data:
@@ -1196,10 +1197,9 @@ def edit_status():
             "status_code": 400
         }), 400
 
-    email = data.get("email")
     new_status = data.get("status")
 
-    if not email or not new_status:
+    if not new_status:
         return jsonify({
             "message": "Missing required fields",
             "successful": False,
@@ -1213,7 +1213,7 @@ def edit_status():
             "status_code": 400
         }), 400
 
-    user = User.query.filter_by(email=email).first()
+    user = User.query.get(user_id)
 
     if user:
         user.status = new_status
