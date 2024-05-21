@@ -312,7 +312,7 @@ def send_new_user_credentials(data):
 
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = f"merchmate@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['From'] = f"merchmate@trial-0p7kx4x8xdvg9yjr.mlsender.net"
     msg['To'] = email
 
     smtp_server = app.config['SMTP_SERVER_ADDRESS']
@@ -556,7 +556,7 @@ def send_manager_email(data, manager, merchandiser):
 
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = f"{merchandiser.first_name}{merchandiser.last_name}@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['From'] = f"{merchandiser.first_name}{merchandiser.last_name}@trial-0p7kx4x8xdvg9yjr.mlsender.net"
     msg['To'] = manager.email
 
     smtp_server = app.config['SMTP_SERVER_ADDRESS']
@@ -641,7 +641,7 @@ def send_email_to_merchandiser(data):
 
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-0p7kx4x8xdvg9yjr.mlsender.net"
     msg['To'] = merchandiser.email
 
     
