@@ -50,6 +50,39 @@ blacklist = set()
 def index():
     return '<h1>Merchandiser Route App</h1>'
 
+
+@app.route("/users/delete-user", methods=["DELETE"])
+@jwt_required()
+def delete_user():
+    data = request.get_json()
+    staff_no = data.get("staff_no")
+    user_to_delete = User.query.filter_by(staff_no=staff_no).first()
+
+    if not user_to_delete:
+        return jsonify({
+            'message': 'User not found',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    try:
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        return jsonify({
+            'message': f'User {staff_no} has been deleted successfully',
+            "successful": True,
+            "status_code": 204
+        }), 204
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+            'message': f'Failed to delete user: {err}',
+            "successful": False,
+            "status_code": 500
+        }), 500
+    
+
 def log_activity(action, user_id):
     try:
         new_activity = ActivityLog(
@@ -124,7 +157,8 @@ def signup():
     username = data.get('username').lower() if data.get('username') else None
     email = data.get('email').lower() if data.get('email') else None
     password = data.get('password')
-    staff_no = data.get("staff_no")
+    staff_no = data.get('staff_no')
+    role = data.get("role").lower() if data.get("role") else None
 
     try:
         national_id_no = int(data.get('national_id_no'))
@@ -206,6 +240,13 @@ def signup():
             "successful": False,
             "status_code": 400
             }), 400
+    
+    if role != "manager" or role != "merchandiser" or role != "admin":
+        return jsonify({
+            'message': 'Role must be either manager, merchandiser or admin',
+            "successful": False,
+            "status_code": 400
+            }), 400
 
     # Hash the password before saving it
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -220,7 +261,7 @@ def signup():
         email=email,
         password=hashed_password,
         staff_no = staff_no,
-        role='merchandiser', 
+        role=role, 
     )
 
     access_token = create_access_token(identity=new_user.id)
@@ -228,6 +269,7 @@ def signup():
     try:
         db.session.add(new_user)
         db.session.commit()
+        send_new_user_credentials(data)
         log_activity('User signed up', new_user.id)
         return jsonify({
             "successful": True,
@@ -243,6 +285,45 @@ def signup():
             "successful": False,
             "status_code": 500
             }), 500
+
+
+
+def send_new_user_credentials(data):
+    first_name = data.get('first_name').title()
+    last_name = data.get('last_name').title()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    role = data.get("role")
+
+    subject = f'Account Creation'
+
+    body = f"\nGreetings {first_name} {last_name}, I trust this mail finds you well.\n\n"
+
+    body += f"You have been created in Merch Mate platform as {role}.\n\n"
+    body += f"You login credentials are as below\n\n"
+
+    body += f"Email: {email}\n\n"
+    body += f"Password: {password}\n\n"
+    body += "Please log in and change your password.\n\n"
+
+    body += f"Kind regards,\n\n"
+    body += f"Merch Mate Group\n\n"
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = f"merchmate@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['To'] = email
+
+    smtp_server = app.config['SMTP_SERVER_ADDRESS']
+    smtp_port = app.config['SMTP_PORT']
+    username = app.config['SMTP_USERNAME']
+    password = app.config['SMTP_PASSWORD']
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, email, msg.as_string())
 
 
 @app.route('/users', methods=['GET'])
@@ -938,7 +1019,8 @@ def location_details():
         return jsonify({
             "successful": True,
             "status_code": 200,
-            'message': location_list}), 200
+            'message': location_list
+            }), 200
     
     elif request.method == 'POST':
 
