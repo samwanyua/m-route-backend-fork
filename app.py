@@ -361,6 +361,135 @@ def get_manager_route_plans(manager_id):
     }), 200
 
 
+@app.route("/users/send-notifications", methods=["POST"])
+@jwt_required()
+def send_notification():
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+                "message": "Invalid request: No data provided",
+                "successful": False,
+                "status_code": 400
+                }), 400
+    
+    staff_no = data.get("staff_no")
+    content = data.get("content")
+    timestamp = data.get("timestamp")
+    status = data.get("status")
+    merchandiser_id =data.get("merchandiser_id")
+
+    if not all([staff_no, content, timestamp, status]):
+        return jsonify({
+            "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+        }), 400
+    
+    
+    if not isinstance(content, str) or not isinstance(status, str) or not isinstance(timestamp, str):
+        return jsonify({
+                "message": "Content, time, and status must be letters",
+                "successful": False,
+                "status_code": 400
+                }), 400
+    
+
+    try:
+        datetime.strptime(timestamp, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return jsonify({
+            "message": "Invalid timestamp format. Use YYYY-MM-DDTHH:MM",
+            "successful": False,
+            "status_code": 400
+        }), 400
+    
+    
+    manager = User.query.filter_by(staff_no=staff_no).first()
+
+    if not manager:
+        return jsonify({
+                "message": "Invalid manager's staff number.",
+                "successful": False,
+                "status_code": 400
+                }), 400
+    
+    merchandiser = User.query.filter_by(id=merchandiser_id).first()
+    if not merchandiser:
+        return jsonify({
+            "message": "Invalid merchandiser details, login again.",
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+    notification = Notification(
+        recipient_id=manager.id,
+        content=content,
+        timestamp=timestamp,
+        status=status
+    )
+
+    try:
+        db.session.add(notification)
+        db.session.commit()
+        send_manager_email(data, manager, merchandiser)
+        return jsonify({
+                "message": "Notification sent successfully",
+                "successful": True,
+                "status_code": 201
+                }), 201
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+                "message": f"Error: {err}",
+                "successful": False,
+                "status_code": 500
+                }), 500
+    
+    
+def send_manager_email(data, manager, merchandiser):
+
+    content = data.get("content")
+    facility = data.get("facility")
+    timestamp = data.get("timestamp")
+    status = data.get("status")
+    manager_name = f"{manager.first_name} {manager.last_name}"
+
+
+    subject = f'Merchandiser Report of {facility}'
+
+    body = f"\nGreetings {manager_name}, I trust this mail finds you well.\n\n"
+
+    body += f"On today's field work at {facility} at {timestamp}, I have this to report.\n\n"
+    body += f"{content}\n\n"
+
+    body += f"Status: {status}\n\n"
+    body += "Thanks for your continued support.\n\n"
+
+    body += f"Kind regards,\n\n"
+    body += f"{merchandiser.first_name} {merchandiser.last_name}, \n"
+    body += f"Merchandiser,\n"
+    body += f"Merch Mate Group\n\n"
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = f"{merchandiser.first_name}{merchandiser.last_name}@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['To'] = manager.email
+
+    smtp_server = app.config['SMTP_SERVER_ADDRESS']
+    smtp_port = app.config['SMTP_PORT']
+    username = app.config['SMTP_USERNAME']
+    password = app.config['SMTP_PASSWORD']
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, manager.email, msg.as_string())
+
+
+
 @app.route("/users/route-plans/<int:merchandiser_id>", methods=["GET"])
 @jwt_required()
 def get_merchandiser_route_plans(merchandiser_id):
@@ -431,7 +560,7 @@ def send_email_to_merchandiser(data):
 
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-jy7zpl9xj15l5vx6.mlsender.net"
+    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-3yxj6ljvdo0ldo2r.mlsender.net"
     msg['To'] = merchandiser.email
 
     
