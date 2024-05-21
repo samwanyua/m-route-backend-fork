@@ -240,12 +240,12 @@ def signup():
             "status_code": 400
             }), 400
     
-    if role != "manager" or role != "merchandiser" or role != "admin":
+    if role not in ["manager", "merchandiser", "admin"]:
         return jsonify({
             'message': 'Role must be either manager, merchandiser or admin',
             "successful": False,
             "status_code": 400
-            }), 400
+        }), 400
 
     # Hash the password before saving it
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
