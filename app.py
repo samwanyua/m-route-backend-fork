@@ -186,7 +186,7 @@ def signup():
             }), 400
 
     # Check for required fields
-    if not all([first_name, last_name, national_id_no, username, email, password]):
+    if not all([first_name, role, last_name, national_id_no, username, email, password]):
         return jsonify({
             'message': 'Missing required fields',
 
