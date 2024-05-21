@@ -1321,6 +1321,62 @@ def edit_status(user_id):
             "successful": False,
             "status_code": 404
         }), 404
+    
+@app.route("/users/<int:user_id>/edit-role", methods=["PUT"])
+@jwt_required()
+def edit_role(user_id):
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    new_role = data.get("role")
+
+    if not new_role:
+        return jsonify({
+            "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    if new_role not in ["admin", "merchandiser", "manager"]:
+        return jsonify({
+            "message": "Invalid role value",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    user = User.query.get(user_id)
+
+    if user:
+        user.role = new_role
+
+        try:
+            db.session.commit()
+            log_activity(f'Changed role to {new_role}.', user.id)
+            return jsonify({
+                "message": "Role updated successfully",
+                "successful": True,
+                "status_code": 200
+            }), 200
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({
+                "message": f"Failed to update role. Error: {err}",
+                "successful": False,
+                "status_code": 500
+            }), 500
+    else:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
 
 
 @app.route("/users/edit-profile-image/<int:id>", methods=["PUT"])
