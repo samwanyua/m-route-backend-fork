@@ -1185,6 +1185,62 @@ def change_password():
             "status_code": 404
             }), 404
 
+@app.route("/users/edit-status", methods=["PUT"])
+def edit_status():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    email = data.get("email")
+    new_status = data.get("status")
+
+    if not email or not new_status:
+        return jsonify({
+            "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    if new_status not in ["active", "blocked"]:
+        return jsonify({
+            "message": "Invalid status value",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        user.status = new_status
+
+        try:
+            db.session.commit()
+            log_activity(f'Changed status to {new_status}.', user.id)
+            return jsonify({
+                "message": "Status updated successfully",
+                "successful": True,
+                "status_code": 200
+            }), 200
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({
+                "message": f"Failed to update status. Error: {err}",
+                "successful": False,
+                "status_code": 500
+            }), 500
+    else:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+
 @app.route("/users/edit-profile-image/<int:id>", methods=["PUT"])
 @jwt_required()
 def edit_user_image(id):
