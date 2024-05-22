@@ -50,6 +50,96 @@ blacklist = set()
 def index():
     return '<h1>Merchandiser Route App</h1>'
 
+
+@app.route("/users/edit-user/<int:id>", methods=["PUT"])
+@jwt_required()
+def change_user_details(id):
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            'message': 'Invalid request: Empty data',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Extract first and last name from request data
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+
+    # Validate that both first and last names are provided
+    if not first_name or not last_name:
+        return jsonify({
+            'message': 'Invalid request: first_name and last_name are required',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    user = User.query.filter_by(id=id).first()
+
+    if not user:
+        return jsonify({
+            'message': 'User not found',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    # Update user details
+    user.first_name = first_name
+    user.last_name = last_name
+
+    try:
+        # Commit changes to the database
+        db.session.commit()
+        return jsonify({
+            'message': 'User details updated successfully',
+            "successful": True,
+            "status_code": 200
+        }), 200
+    
+    except Exception as e:
+        # Rollback in case of an error
+        db.session.rollback()
+        return jsonify({
+            'message': 'An error occurred while updating user details',
+            "successful": False,
+            "status_code": 500
+        }), 500
+    
+
+@app.route("/users/delete-user", methods=["DELETE"])
+@jwt_required()
+def delete_user():
+    data = request.get_json()
+    staff_no = data.get("staff_no")
+    user_to_delete = User.query.filter_by(staff_no=staff_no).first()
+
+    if not user_to_delete:
+        return jsonify({
+            'message': 'User not found',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    try:
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        return jsonify({
+            'message': f'User {staff_no} has been deleted successfully',
+            "successful": True,
+            "status_code": 204
+        }), 204
+
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+            'message': f'Failed to delete user: {err}',
+            "successful": False,
+            "status_code": 500
+        }), 500
+    
+
 def log_activity(action, user_id):
     try:
         new_activity = ActivityLog(
@@ -124,7 +214,8 @@ def signup():
     username = data.get('username').lower() if data.get('username') else None
     email = data.get('email').lower() if data.get('email') else None
     password = data.get('password')
-    staff_no = data.get("staff_no")
+    staff_no = data.get('staff_no')
+    role = data.get("role").lower() if data.get("role") else None
 
     try:
         national_id_no = int(data.get('national_id_no'))
@@ -152,7 +243,7 @@ def signup():
             }), 400
 
     # Check for required fields
-    if not all([first_name, last_name, national_id_no, username, email, password]):
+    if not all([first_name, role, last_name, national_id_no, username, email, password]):
         return jsonify({
             'message': 'Missing required fields',
 
@@ -206,6 +297,13 @@ def signup():
             "successful": False,
             "status_code": 400
             }), 400
+    
+    if role not in ["manager", "merchandiser", "admin"]:
+        return jsonify({
+            'message': 'Role must be either manager, merchandiser or admin',
+            "successful": False,
+            "status_code": 400
+        }), 400
 
     # Hash the password before saving it
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -220,7 +318,7 @@ def signup():
         email=email,
         password=hashed_password,
         staff_no = staff_no,
-        role='merchandiser', 
+        role=role, 
     )
 
     access_token = create_access_token(identity=new_user.id)
@@ -228,6 +326,7 @@ def signup():
     try:
         db.session.add(new_user)
         db.session.commit()
+        send_new_user_credentials(data)
         log_activity('User signed up', new_user.id)
         return jsonify({
             "successful": True,
@@ -243,6 +342,45 @@ def signup():
             "successful": False,
             "status_code": 500
             }), 500
+
+
+
+def send_new_user_credentials(data):
+    first_name = data.get('first_name').title()
+    last_name = data.get('last_name').title()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    role = data.get("role")
+
+    subject = f'Account Creation'
+
+    body = f"\nGreetings {first_name} {last_name}, I trust this mail finds you well.\n\n"
+
+    body += f"You have been created in Merch Mate platform as {role}.\n\n"
+    body += f"You login credentials are as below\n\n"
+
+    body += f"Email: {email}\n\n"
+    body += f"Password: {password}\n\n"
+    body += "Please log in and change your password.\n\n"
+
+    body += f"Kind regards,\n\n"
+    body += f"Merch Mate Group\n\n"
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = f"merchmate@trial-0p7kx4x8xdvg9yjr.mlsender.net"
+    msg['To'] = email
+
+    smtp_server = app.config['SMTP_SERVER_ADDRESS']
+    smtp_port = app.config['SMTP_PORT']
+    username = app.config['SMTP_USERNAME']
+    password = app.config['SMTP_PASSWORD']
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, email, msg.as_string())
 
 
 @app.route('/users', methods=['GET'])
@@ -475,7 +613,7 @@ def send_manager_email(data, manager, merchandiser):
 
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = f"{merchandiser.first_name}{merchandiser.last_name}@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['From'] = f"{merchandiser.first_name}{merchandiser.last_name}@trial-0p7kx4x8xdvg9yjr.mlsender.net"
     msg['To'] = manager.email
 
     smtp_server = app.config['SMTP_SERVER_ADDRESS']
@@ -560,7 +698,7 @@ def send_email_to_merchandiser(data):
 
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-3yxj6ljvdo0ldo2r.mlsender.net"
+    msg['From'] = f"{manager.first_name}{manager.last_name}@trial-0p7kx4x8xdvg9yjr.mlsender.net"
     msg['To'] = merchandiser.email
 
     
@@ -742,12 +880,15 @@ def route_plan_details():
                 }), 400
         
         # Check if data adheres to model specifications
-        if not isinstance(staff_no, int) or not isinstance(manager_id, int):
+        try:
+            staff_no = int(staff_no)
+            manager_id = int(manager_id)
+        except ValueError:
             return jsonify({
                 'message': 'Staff number and Manager ID must be integers',
                 "successful": False,
                 "status_code": 400
-                }), 400
+            }), 400
         
         if not isinstance(date_range, dict):
             return jsonify({
@@ -938,7 +1079,8 @@ def location_details():
         return jsonify({
             "successful": True,
             "status_code": 200,
-            'message': location_list}), 200
+            'message': location_list
+            }), 200
     
     elif request.method == 'POST':
 
