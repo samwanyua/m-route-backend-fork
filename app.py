@@ -789,35 +789,56 @@ def delete_route_plans(id):
 
 @app.route("/users/modify-route/<int:id>", methods=["PUT"])
 @jwt_required()
-def mark_route_as_complete(id):
-
+def modify_route(id):
     route = RoutePlan.query.filter_by(id=id).first()
 
     if not route:
         return jsonify({
-                'message': 'Route plan does not exist',
-                "successful": False,
-                "status_code": 404
-                }), 404
+            'message': 'Route plan does not exist',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    data = request.get_json()
     
-    route.status = "Complete"
+    if 'instructions' in data:
+        try:
+            new_instructions = data['instructions']
+            # Assuming the instructions are stored as a JSON string in the database
+            existing_instructions = json.loads(route.instructions)
+
+            for new_instr in new_instructions:
+                for existing_instr in existing_instructions:
+                    if existing_instr['id'] == new_instr['id']:
+                        existing_instr.update(new_instr)
+                        break
+
+            route.instructions = json.dumps(existing_instructions)
+        except Exception as err:
+            return jsonify({
+                'message': f'Error processing instructions: {err}',
+                "successful": False,
+                "status_code": 400
+            }), 400
+
+    if 'status' in data:
+        route.status = data['status']
 
     try:
         db.session.commit()
         return jsonify({
-                'message': 'Route plan marked as complete',
-                "successful": True,
-                "status_code": 201
-                }), 201
+            'message': 'Route plan updated successfully',
+            "successful": True,
+            "status_code": 200
+        }), 200
 
     except Exception as err:
         db.session.rollback()
         return jsonify({
-                'message': f'Error, {err}',
-                "successful": False,
-                "status_code": 500
-                }), 500
-    
+            'message': f'Error committing to database: {err}',
+            "successful": False,
+            "status_code": 500
+        }), 500
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
