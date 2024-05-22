@@ -51,6 +51,63 @@ def index():
     return '<h1>Merchandiser Route App</h1>'
 
 
+@app.route("/users/edit-user/<int:id>", methods=["PUT"])
+@jwt_required()
+def change_user_details(id):
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            'message': 'Invalid request: Empty data',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Extract first and last name from request data
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+
+    # Validate that both first and last names are provided
+    if not first_name or not last_name:
+        return jsonify({
+            'message': 'Invalid request: first_name and last_name are required',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    user = User.query.filter_by(id=id).first()
+
+    if not user:
+        return jsonify({
+            'message': 'User not found',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    # Update user details
+    user.first_name = first_name
+    user.last_name = last_name
+
+    try:
+        # Commit changes to the database
+        db.session.commit()
+        return jsonify({
+            'message': 'User details updated successfully',
+            "successful": True,
+            "status_code": 200
+        }), 200
+    
+    except Exception as e:
+        # Rollback in case of an error
+        db.session.rollback()
+        return jsonify({
+            'message': 'An error occurred while updating user details',
+            "successful": False,
+            "status_code": 500
+        }), 500
+    
+
 @app.route("/users/delete-user", methods=["DELETE"])
 @jwt_required()
 def delete_user():
@@ -823,12 +880,15 @@ def route_plan_details():
                 }), 400
         
         # Check if data adheres to model specifications
-        if not isinstance(staff_no, int) or not isinstance(manager_id, int):
+        try:
+            staff_no = int(staff_no)
+            manager_id = int(manager_id)
+        except ValueError:
             return jsonify({
                 'message': 'Staff number and Manager ID must be integers',
                 "successful": False,
                 "status_code": 400
-                }), 400
+            }), 400
         
         if not isinstance(date_range, dict):
             return jsonify({
