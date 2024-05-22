@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from sqlalchemy import func, and_
 import smtplib
 from email.mime.text import MIMEText
+from sqlalchemy.orm.exc import NoResultFound
 import json
 import os
 import re
@@ -494,6 +495,7 @@ def users():
             'role': user.role,
             'status': user.status, 
             "staff_no": user.staff_no,
+            "avatar": user.avatar,
         }
         user_list.append(user_info)
 
@@ -505,6 +507,85 @@ def users():
         "status_code": 200,
         'message': user_list
         }), 200
+
+@app.route('/users/<user_id>', methods=['GET'])
+@jwt_required()
+def get_user(user_id):
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    user_info = {
+        'id': user.id,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'username': user.username,
+        'email': user.email,
+        'role': user.role,
+        'status': user.status,
+        "staff_no": user.staff_no,
+        "avatar": user.avatar,
+    }
+
+    user_id = get_jwt_identity()
+    log_activity(f'Viewed details of user {user_id}', user_id)
+
+    return jsonify({
+        "successful": True,
+        "status_code": 200,
+        'message': user_info
+    }), 200
+
+from flask import jsonify
+
+@app.route("/users/manager-route-plans/<int:manager_id>", methods=["GET"])
+@jwt_required()
+def get_manager_route_plans(manager_id):
+    # Filter route plans based on manager_id
+    route_plans = RoutePlan.query.filter_by(manager_id=manager_id).all()
+
+    if not route_plans:
+        return jsonify({
+            'message': 'No route plans found for this manager',
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+    route_plans_list = []
+
+    for route in route_plans:
+        # Fetch associated user details using staff_no
+        merchandiser = User.query.filter_by(staff_no=route.staff_no).first()
+        if merchandiser:
+            # Append route plan details along with merchandiser details to the list
+            route_plans_list.append({
+                'merchandiser_id': route.merchandiser_id,
+                'manager_id': route.manager_id,
+                'date_range': route.date_range,
+                'instructions': route.instructions,
+                'status': route.status,
+                "id": route.id,
+                # Include merchandiser details
+                'merchandiser_details': {
+                    'id': merchandiser.id,
+                    'first_name': merchandiser.first_name,
+                    'last_name': merchandiser.last_name,
+                    'email': merchandiser.email,
+                    'avatar': merchandiser.avatar
+                    # Add more details as needed
+                }
+            })
+
+    return jsonify({
+        'message': route_plans_list,
+        "successful": True,
+        "status_code": 200
+    }), 200
 
 
 @app.route("/users/send-notifications", methods=["POST"])
@@ -796,35 +877,56 @@ def delete_route_plans(id):
 
 @app.route("/users/modify-route/<int:id>", methods=["PUT"])
 @jwt_required()
-def mark_route_as_complete(id):
-
+def modify_route(id):
     route = RoutePlan.query.filter_by(id=id).first()
 
     if not route:
         return jsonify({
-                'message': 'Route plan does not exist',
-                "successful": False,
-                "status_code": 404
-                }), 404
+            'message': 'Route plan does not exist',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    data = request.get_json()
     
-    route.status = "Complete"
+    if 'instructions' in data:
+        try:
+            new_instructions = data['instructions']
+            # Assuming the instructions are stored as a JSON string in the database
+            existing_instructions = json.loads(route.instructions)
+
+            for new_instr in new_instructions:
+                for existing_instr in existing_instructions:
+                    if existing_instr['id'] == new_instr['id']:
+                        existing_instr.update(new_instr)
+                        break
+
+            route.instructions = json.dumps(existing_instructions)
+        except Exception as err:
+            return jsonify({
+                'message': f'Error processing instructions: {err}',
+                "successful": False,
+                "status_code": 400
+            }), 400
+
+    if 'status' in data:
+        route.status = data['status']
 
     try:
         db.session.commit()
         return jsonify({
-                'message': 'Route plan marked as complete',
-                "successful": True,
-                "status_code": 201
-                }), 201
+            'message': 'Route plan updated successfully',
+            "successful": True,
+            "status_code": 200
+        }), 200
 
     except Exception as err:
         db.session.rollback()
         return jsonify({
-                'message': f'Error, {err}',
-                "successful": False,
-                "status_code": 500
-                }), 500
-    
+            'message': f'Error committing to database: {err}',
+            "successful": False,
+            "status_code": 500
+        }), 500
 
 @app.route('/users/route-plans', methods=['GET', 'POST'])
 @jwt_required()
@@ -1416,6 +1518,118 @@ def change_password():
             "status_code": 404
             }), 404
 
+@app.route("/users/<int:user_id>/edit-status", methods=["PUT"])
+@jwt_required()
+def edit_status(user_id):
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    new_status = data.get("status")
+
+    if not new_status:
+        return jsonify({
+            "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    if new_status not in ["active", "blocked"]:
+        return jsonify({
+            "message": "Invalid status value",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    user = User.query.get(user_id)
+
+    if user:
+        user.status = new_status
+
+        try:
+            db.session.commit()
+            log_activity(f'Changed status to {new_status}.', user.id)
+            return jsonify({
+                "message": "Status updated successfully",
+                "successful": True,
+                "status_code": 200
+            }), 200
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({
+                "message": f"Failed to update status. Error: {err}",
+                "successful": False,
+                "status_code": 500
+            }), 500
+    else:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+    
+@app.route("/users/<int:user_id>/edit-role", methods=["PUT"])
+@jwt_required()
+def edit_role(user_id):
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    new_role = data.get("role")
+
+    if not new_role:
+        return jsonify({
+            "message": "Missing required fields",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    if new_role not in ["admin", "merchandiser", "manager"]:
+        return jsonify({
+            "message": "Invalid role value",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    user = User.query.get(user_id)
+
+    if user:
+        user.role = new_role
+
+        try:
+            db.session.commit()
+            log_activity(f'Changed role to {new_role}.', user.id)
+            return jsonify({
+                "message": "Role updated successfully",
+                "successful": True,
+                "status_code": 200
+            }), 200
+        except Exception as err:
+            db.session.rollback()
+            return jsonify({
+                "message": f"Failed to update role. Error: {err}",
+                "successful": False,
+                "status_code": 500
+            }), 500
+    else:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+
+
 @app.route("/users/edit-profile-image/<int:id>", methods=["PUT"])
 @jwt_required()
 def edit_user_image(id):
@@ -1516,13 +1730,22 @@ def get_users_activities():
             }), 500
 
 
+
 @app.route("/users/notifications", methods=["GET", "POST"])
+
 @jwt_required()
-def manage_notifications():
+def manage_notifications(user_id):
+    # Ensure that the user_id from the URL matches the one in the JWT token
+    jwt_user_id = get_jwt_identity()
+    if user_id != jwt_user_id:
+        return jsonify({
+            "message": "Unauthorized access",
+            "successful": False,
+            "status_code": 401
+        }), 401
 
     if request.method == "GET":
         try:
-            user_id = get_jwt_identity()
             notifications = Notification.query.filter_by(recipient_id=user_id).all()
 
             if not notifications:
@@ -1530,7 +1753,7 @@ def manage_notifications():
                     "message": "No notifications found",
                     "successful": False,
                     "status_code": 404
-                    }), 404
+                }), 404
 
             notification_list = []
             for notification in notifications:
@@ -1548,14 +1771,14 @@ def manage_notifications():
                 "message": notification_list,
                 "successful": True,
                 "status_code": 200
-                }), 200
+            }), 200
 
         except Exception as err:
             return jsonify({
                 "message": str(err),
                 "successful": False,
                 "status_code": 500
-                }), 500
+            }), 500
 
     elif request.method == "POST":
         data = request.get_json()
@@ -1565,54 +1788,53 @@ def manage_notifications():
                 "message": "Invalid data",
                 "successful": False,
                 "status_code": 400
-                            }), 400
+            }), 400
 
-        recipient_id = data.get("recipient_id")
         content = data.get("content")
+        recipient_email = data.get("recipient_email")
 
-        if not all([recipient_id, content]):
-
+        if not content:
             return jsonify({
-                "message": "Missing required fields",
+                "message": "Content is required",
                 "successful": False,
                 "status_code": 400
-                }), 400
-        
-        # Check data types and formats
-        if not isinstance(recipient_id, int):
+            }), 400
+
+        if not recipient_email:
             return jsonify({
-                "message": "Recipient ID must be an integer",
+                "message": "Recipient email is required",
                 "successful": False,
                 "status_code": 400
-                }), 400
-
-        if not isinstance(content, str):
-            return jsonify({
-                "message": "Content must be a string",
-                "successful": False,
-                "status_code": 400
-                }), 400
-
-
-        new_notification = Notification(
-            recipient_id=recipient_id,
-            content=content,
-            timestamp=datetime.now(timezone.utc),
-            status="unread"
-        )
+            }), 400
 
         try:
+            user = User.query.filter_by(email=recipient_email).one()
+            recipient_id = user.id
+
+            new_notification = Notification(
+                recipient_id=recipient_id,
+                content=content,
+                timestamp=datetime.now(timezone.utc),
+                status="unread"
+            )
+
             db.session.add(new_notification)
             db.session.commit()
 
-            user_id = get_jwt_identity()
             log_activity(f'Created notification: {content}', user_id)
 
             return jsonify({
                 "message": "Notification created successfully",
                 "successful": True,
                 "status_code": 201
-                }), 201
+            }), 201
+
+        except NoResultFound:
+            return jsonify({
+                "message": f"User with email {recipient_email} not found",
+                "successful": False,
+                "status_code": 404
+            }), 404
 
         except Exception as err:
             db.session.rollback()
@@ -1620,7 +1842,8 @@ def manage_notifications():
                 "message": str(err),
                 "successful": False,
                 "status_code": 500
-                }), 500
+            }), 500
+
 
 @app.route("/users/notifications/<int:notification_id>", methods=["PUT", "DELETE"])
 @jwt_required()
@@ -1815,7 +2038,54 @@ def create_reviews():
             "successful": False
         }), 500
     
+@app.route("/users/<int:user_id>/update", methods=["PUT"])
+def update_user(user_id):
+    data = request.get_json()
 
+    if not data:
+        return jsonify({
+            "message": "Invalid request",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Extract fields from the request
+    new_password = data.get("new_password")
+
+    if not new_password:
+        return jsonify({
+            "message": "New password is required",
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    # Check if the user exists
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({
+            "message": "User not found",
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    # Update the password
+    hashed_new_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+    user.password = hashed_new_password
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Password updated successfully",
+            "successful": True,
+            "status_code": 200
+        }), 200
+    except Exception as err:
+        db.session.rollback()
+        return jsonify({
+            "message": f"Failed to update password. Error: {err}",
+            "successful": False,
+            "status_code": 500
+        }), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5555, debug=True)
