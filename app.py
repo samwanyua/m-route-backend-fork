@@ -362,7 +362,8 @@ def send_new_user_credentials(data):
 
     body += f"Email: {email}\n\n"
     body += f"Password: {password}\n\n"
-    body += "Please log in and change your password.\n\n"
+    body += f"Use this url to login https://m-route-frontend.vercel.app/ \n\n"
+    body += "Once you log in,  change your password.\n\n"
 
     body += f"Kind regards,\n\n"
     body += f"Merch Mate Group\n\n"
@@ -955,6 +956,87 @@ def route_plan_details():
                 }), 500
 
 
+@app.route("/users/change-route-status/<int:id>", methods=["PUT"])
+@jwt_required()
+def change_route_status(id):
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            'message': 'Invalid request: Empty data',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    instruction_id = data.get("instruction_id")
+    status = data.get("status").lower() if data.get("status") else None
+
+    if not instruction_id or not status:
+        return jsonify({
+            'message': 'Missing required fields',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    if status not in ["pending", "complete"]:
+        return jsonify({
+            'message': 'Status must either be "complete" or "pending"',
+            "successful": False,
+            "status_code": 400
+        }), 400
+
+    route_plan = RoutePlan.query.filter_by(id=id).first()
+
+    if not route_plan:
+        return jsonify({
+            'message': 'Route plan not found',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    try:
+        instructions = json.loads(route_plan.instructions)
+    except json.JSONDecodeError:
+        return jsonify({
+            'message': 'Error decoding instructions JSON',
+            "successful": False,
+            "status_code": 500
+        }), 500
+
+    instruction_found = False
+
+    for instruction in instructions:
+        if instruction.get("id") == instruction_id:
+            instruction["status"] = status
+            instruction_found = True
+            break
+
+    if not instruction_found:
+        return jsonify({
+            'message': 'Instruction not found',
+            "successful": False,
+            "status_code": 404
+        }), 404
+
+    route_plan.instructions = json.dumps(instructions)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            'message': 'Route plan status updated successfully',
+            "successful": True,
+            "status_code": 201
+        }), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'message': 'Error saving changes to the database',
+            "successful": False,
+            "status_code": 500
+        }), 500
+
+    
 @app.route('/users/route-plans/<int:route_plan_id>', methods=['PUT'])
 @jwt_required()
 def update_route_plan(route_plan_id):
