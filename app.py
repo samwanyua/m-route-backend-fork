@@ -48,7 +48,7 @@ blacklist = set()
 
 @app.route('/')
 def index():
-    return '<h1>Merchandiser Route App</h1>'
+    return '<h1>Merch Mate Group</h1>'
 
 
 @app.route("/users/edit-user/<int:id>", methods=["PUT"])
